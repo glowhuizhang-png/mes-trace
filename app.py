@@ -267,7 +267,7 @@ def derive_columns(df, code_to_cause, code_to_shop, cause_to_shop):
 def extract_production(file_path, selected_dates):
     try:
         df_prod = pd.read_excel(file_path, header=None, dtype=str)
-        # 清洗表头
+        # 清洗表头：去除所有空白字符
         header_row = (
             df_prod.iloc[0]
             .fillna("")
@@ -276,7 +276,7 @@ def extract_production(file_path, selected_dates):
             .tolist()
         )
         total = 0
-        # 日期去重
+        # 日期去重，避免重复累加
         unique_dates = list(set(selected_dates))
 
         for date_str in unique_dates:
@@ -304,10 +304,9 @@ def extract_production(file_path, selected_dates):
 
             if col_idx is not None:
                 col_data = df_prod.iloc[1:, col_idx]
-                # 关键修复：取最后一个有效数值，而不是求和
-                valid_vals = pd.to_numeric(col_data, errors='coerce').dropna()
-                if not valid_vals.empty:
-                    total += valid_vals.iloc[-1]   # 最后一行有效值
+                # 对该列所有有效数值求和
+                daily_sum = pd.to_numeric(col_data, errors='coerce').sum()
+                total += daily_sum
 
         return total
 
