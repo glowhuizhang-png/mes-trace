@@ -117,13 +117,11 @@ section[data-testid="stSidebar"] {
 # =====================================================
 # 默认路径
 # =====================================================
-import os
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-RULE_FILE = os.path.join(BASE_DIR, "data", "0.rule.xlsx")
-RAW_DIR = os.path.join(BASE_DIR, "data", "质量原始数据")
-PHOTO_DIR = os.path.join(BASE_DIR, "data", "照片库")
-PRODUCTION_FILE = os.path.join(BASE_DIR, "data", "硫化产量", "硫化产量.xls")
-UF_DATA_DIR = os.path.join(BASE_DIR, "data", "UF检查数据")
+RULE_FILE = r"D:\QUALITY\0.rule.xlsx"
+RAW_DIR = r"D:\QUALITY\质量原始数据"
+PHOTO_DIR = r"D:\QUALITY\照片库"
+PRODUCTION_FILE = r"D:\QUALITY\硫化产量\硫化产量.xls"
+UF_DATA_DIR = r"D:\QUALITY\UF检查数据"
 
 # =====================================================
 # 图表美化
@@ -268,34 +266,55 @@ def derive_columns(df, code_to_cause, code_to_shop, cause_to_shop):
 def extract_production(file_path, selected_dates):
     try:
         df_prod = pd.read_excel(file_path, header=None, dtype=str)
-        header_row = df_prod.iloc[0].fillna("").astype(str).str.strip()
+        # 清洗表头：去除首尾空格、全角空格、换行符，并统一转为 str
+        header_row = (
+            df_prod.iloc[0]
+            .fillna("")
+            .astype(str)
+            .apply(lambda x: re.sub(r"[\s　\n\r\t]+", "", x))
+            .tolist()
+        )
         total = 0
+        debug_matched = []  # 用于调试输出匹配信息
+
         for date_str in selected_dates:
             try:
                 dt = pd.to_datetime(date_str, format='%Y%m%d')
+                # 生成所有可能的日期格式（精确匹配，按常见程度排序）
                 patterns = [
-                    f"{dt.month}.{dt.day}",
-                    f"{dt.month:02d}.{dt.day:02d}",
-                    f"{dt.month}-{dt.day}",
-                    f"{dt.month:02d}-{dt.day:02d}",
-                    f"{dt.month}/{dt.day}",
-                    f"{dt.month}/{dt.day:02d}",
-                    f"{dt.month}月{dt.day}日",
+                    f"{dt.month:02d}-{dt.day:02d}",      # 05-30
+                    f"{dt.month}-{dt.day}",                # 5-30
+                    f"{dt.month:02d}.{dt.day:02d}",       # 05.30
+                    f"{dt.month}.{dt.day}",                # 5.30
+                    f"{dt.month:02d}/{dt.day:02d}",       # 05/30
+                    f"{dt.month}/{dt.day}",                # 5/30
+                    f"{dt.month}月{dt.day}日",            # 5月30日
+                    f"{dt.year}-{dt.month:02d}-{dt.day:02d}",  # 2026-05-30（完整年月日）
+                    f"{dt.year}/{dt.month:02d}/{dt.day:02d}",  # 2026/05/30
+                    f"{dt.year}-{dt.month}-{dt.day}",          # 2026-5-30
                 ]
             except:
                 continue
+
             col_idx = None
             for i, cell in enumerate(header_row):
-                for pat in patterns:
-                    if pat in cell:
-                        col_idx = i
-                        break
-                if col_idx is not None:
+                # 精确匹配：清洗后的单元格内容与任何一个 pattern 完全相等
+                if cell in patterns:
+                    col_idx = i
+                    debug_matched.append(f"日期 {date_str} → 匹配列[{i}]: '{cell}'")
                     break
+
             if col_idx is not None:
                 col_data = df_prod.iloc[1:, col_idx]
-                total += pd.to_numeric(col_data, errors='coerce').sum()
+                daily_sum = pd.to_numeric(col_data, errors='coerce').sum()
+                total += daily_sum
+            else:
+                debug_matched.append(f"日期 {date_str} → 未匹配到任何列")
+
+        # 将匹配信息输出到 Streamlit 日志（可在应用日志中查看）
+        st.write("产量匹配调试信息：", debug_matched)  # 部署后可在日志中看到
         return total
+
     except Exception as e:
         st.warning(f"产量文件解析失败：{e}")
         return None
