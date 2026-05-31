@@ -115,13 +115,14 @@ section[data-testid="stSidebar"] {
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 默认路径
+# 默认路径（已改为英文文件夹）
 # =====================================================
-RULE_FILE = r"D:\QUALITY\0.rule.xlsx"
-RAW_DIR = r"D:\QUALITY\质量原始数据"
-PHOTO_DIR = r"D:\QUALITY\照片库"
-PRODUCTION_FILE = r"D:\QUALITY\硫化产量\硫化产量.xls"
-UF_DATA_DIR = r"D:\QUALITY\UF检查数据"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+RULE_FILE = os.path.join(BASE_DIR, "data", "0.rule.xlsx")
+RAW_DIR = os.path.join(BASE_DIR, "data", "raw_data")
+PHOTO_DIR = os.path.join(BASE_DIR, "data", "photos")
+PRODUCTION_FILE = os.path.join(BASE_DIR, "data", "production", "production.xls")
+UF_DATA_DIR = os.path.join(BASE_DIR, "data", "uf_check")
 
 # =====================================================
 # 图表美化
@@ -261,12 +262,12 @@ def derive_columns(df, code_to_cause, code_to_shop, cause_to_shop):
     return df
 
 # =====================================================
-# 产量提取
+# 产量提取（取最后有效值，已修复翻倍问题）
 # =====================================================
 def extract_production(file_path, selected_dates):
     try:
         df_prod = pd.read_excel(file_path, header=None, dtype=str)
-        # 清洗表头：去除首尾空格、全角空格、换行符，并统一转为 str
+        # 清洗表头
         header_row = (
             df_prod.iloc[0]
             .fillna("")
@@ -275,44 +276,39 @@ def extract_production(file_path, selected_dates):
             .tolist()
         )
         total = 0
-        debug_matched = []  # 用于调试输出匹配信息
+        # 日期去重
+        unique_dates = list(set(selected_dates))
 
-        for date_str in selected_dates:
+        for date_str in unique_dates:
             try:
                 dt = pd.to_datetime(date_str, format='%Y%m%d')
-                # 生成所有可能的日期格式（精确匹配，按常见程度排序）
                 patterns = [
-                    f"{dt.month:02d}-{dt.day:02d}",      # 05-30
-                    f"{dt.month}-{dt.day}",                # 5-30
-                    f"{dt.month:02d}.{dt.day:02d}",       # 05.30
-                    f"{dt.month}.{dt.day}",                # 5.30
-                    f"{dt.month:02d}/{dt.day:02d}",       # 05/30
-                    f"{dt.month}/{dt.day}",                # 5/30
-                    f"{dt.month}月{dt.day}日",            # 5月30日
-                    f"{dt.year}-{dt.month:02d}-{dt.day:02d}",  # 2026-05-30（完整年月日）
-                    f"{dt.year}/{dt.month:02d}/{dt.day:02d}",  # 2026/05/30
-                    f"{dt.year}-{dt.month}-{dt.day}",          # 2026-5-30
+                    f"{dt.month:02d}-{dt.day:02d}",
+                    f"{dt.month}-{dt.day}",
+                    f"{dt.month:02d}.{dt.day:02d}",
+                    f"{dt.month}.{dt.day}",
+                    f"{dt.month:02d}/{dt.day:02d}",
+                    f"{dt.month}/{dt.day}",
+                    f"{dt.month}月{dt.day}日",
+                    f"{dt.year}-{dt.month:02d}-{dt.day:02d}",
+                    f"{dt.year}/{dt.month:02d}/{dt.day:02d}",
                 ]
             except:
                 continue
 
             col_idx = None
             for i, cell in enumerate(header_row):
-                # 精确匹配：清洗后的单元格内容与任何一个 pattern 完全相等
                 if cell in patterns:
                     col_idx = i
-                    debug_matched.append(f"日期 {date_str} → 匹配列[{i}]: '{cell}'")
                     break
 
             if col_idx is not None:
                 col_data = df_prod.iloc[1:, col_idx]
-                daily_sum = pd.to_numeric(col_data, errors='coerce').sum()
-                total += daily_sum
-            else:
-                debug_matched.append(f"日期 {date_str} → 未匹配到任何列")
+                # 关键修复：取最后一个有效数值，而不是求和
+                valid_vals = pd.to_numeric(col_data, errors='coerce').dropna()
+                if not valid_vals.empty:
+                    total += valid_vals.iloc[-1]   # 最后一行有效值
 
-        # 将匹配信息输出到 Streamlit 日志（可在应用日志中查看）
-        st.write("产量匹配调试信息：", debug_matched)  # 部署后可在日志中看到
         return total
 
     except Exception as e:
@@ -569,7 +565,7 @@ def main():
             ("废品数量", len(waste_df), waste_rate),
             ("次品外观", len(app_df), app_rate),
             ("UF次品", len(uf_df), uf_rate),
-            ("综合合格率", f"{qual_rate:.2%}", f"产量：{total_production:,.0f}")   # 新增产量显示
+            ("综合合格率", f"{qual_rate:.2%}", f"产量：{total_production:,.0f}")
         ]
         for col, m in zip([c1, c2, c3, c4], metrics):
             with col:

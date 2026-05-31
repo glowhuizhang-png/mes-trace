@@ -115,15 +115,14 @@ section[data-testid="stSidebar"] {
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 默认路径
+# 默认路径（已改为英文文件夹）
 # =====================================================
-import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RULE_FILE = os.path.join(BASE_DIR, "data", "0.rule.xlsx")
-RAW_DIR = os.path.join(BASE_DIR, "data", "质量原始数据")
-PHOTO_DIR = os.path.join(BASE_DIR, "data", "照片库")
-PRODUCTION_FILE = os.path.join(BASE_DIR, "data", "硫化产量", "硫化产量.xls")
-UF_DATA_DIR = os.path.join(BASE_DIR, "data", "UF检查数据")
+RAW_DIR = os.path.join(BASE_DIR, "data", "raw_data")
+PHOTO_DIR = os.path.join(BASE_DIR, "data", "photos")
+PRODUCTION_FILE = os.path.join(BASE_DIR, "data", "production", "production.xls")
+UF_DATA_DIR = os.path.join(BASE_DIR, "data", "uf_check")
 
 # =====================================================
 # 图表美化
@@ -263,39 +262,55 @@ def derive_columns(df, code_to_cause, code_to_shop, cause_to_shop):
     return df
 
 # =====================================================
-# 产量提取
+# 产量提取（取最后有效值，已修复翻倍问题）
 # =====================================================
 def extract_production(file_path, selected_dates):
     try:
         df_prod = pd.read_excel(file_path, header=None, dtype=str)
-        header_row = df_prod.iloc[0].fillna("").astype(str).str.strip()
+        # 清洗表头
+        header_row = (
+            df_prod.iloc[0]
+            .fillna("")
+            .astype(str)
+            .apply(lambda x: re.sub(r"[\s　\n\r\t]+", "", x))
+            .tolist()
+        )
         total = 0
-        for date_str in selected_dates:
+        # 日期去重
+        unique_dates = list(set(selected_dates))
+
+        for date_str in unique_dates:
             try:
                 dt = pd.to_datetime(date_str, format='%Y%m%d')
                 patterns = [
-                    f"{dt.month}.{dt.day}",
-                    f"{dt.month:02d}.{dt.day:02d}",
-                    f"{dt.month}-{dt.day}",
                     f"{dt.month:02d}-{dt.day:02d}",
+                    f"{dt.month}-{dt.day}",
+                    f"{dt.month:02d}.{dt.day:02d}",
+                    f"{dt.month}.{dt.day}",
+                    f"{dt.month:02d}/{dt.day:02d}",
                     f"{dt.month}/{dt.day}",
-                    f"{dt.month}/{dt.day:02d}",
                     f"{dt.month}月{dt.day}日",
+                    f"{dt.year}-{dt.month:02d}-{dt.day:02d}",
+                    f"{dt.year}/{dt.month:02d}/{dt.day:02d}",
                 ]
             except:
                 continue
+
             col_idx = None
             for i, cell in enumerate(header_row):
-                for pat in patterns:
-                    if pat in cell:
-                        col_idx = i
-                        break
-                if col_idx is not None:
+                if cell in patterns:
+                    col_idx = i
                     break
+
             if col_idx is not None:
                 col_data = df_prod.iloc[1:, col_idx]
-                total += pd.to_numeric(col_data, errors='coerce').sum()
+                # 关键修复：取最后一个有效数值，而不是求和
+                valid_vals = pd.to_numeric(col_data, errors='coerce').dropna()
+                if not valid_vals.empty:
+                    total += valid_vals.iloc[-1]   # 最后一行有效值
+
         return total
+
     except Exception as e:
         st.warning(f"产量文件解析失败：{e}")
         return None
@@ -550,7 +565,7 @@ def main():
             ("废品数量", len(waste_df), waste_rate),
             ("次品外观", len(app_df), app_rate),
             ("UF次品", len(uf_df), uf_rate),
-            ("综合合格率", f"{qual_rate:.2%}", f"产量：{total_production:,.0f}")   # 新增产量显示
+            ("综合合格率", f"{qual_rate:.2%}", f"产量：{total_production:,.0f}")
         ]
         for col, m in zip([c1, c2, c3, c4], metrics):
             with col:
