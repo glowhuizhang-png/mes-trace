@@ -16,10 +16,27 @@ st.set_page_config(
 )
 
 # =====================================================
-# 工业风格样式（大屏展示优化）
+# 华青+朱柿 主题样式（最终调整版）
 # =====================================================
 st.markdown("""
 <style>
+/* 全局背景与字体 */
+html, body, [class*="css"] {
+    font-size: 18px;
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    color: #FFFFFF !important;          /* 默认文字改为白色 */
+    background-color: #013475;
+}
+section.main > div {
+    background-color: #013475;
+    padding-top: 0rem !important;
+}
+.block-container {
+    background-color: #013475;
+    padding-top: 0.5rem !important;
+}
+
+/* 标题 */
 h1 {
     margin-top: 0 !important;
     margin-bottom: 0.2rem !important;
@@ -27,98 +44,105 @@ h1 {
     padding-bottom: 0 !important;
     font-size: 32px !important;
     font-weight: 800 !important;
-    color: #0a2c4b !important;
+    color: #EE6F44 !important;
 }
-.block-container {
-    padding-top: 0.5rem !important;
-}
-section.main > div {
-    padding-top: 0rem !important;
+h2, h3, h4 {
+    color: #EE6F44 !important;
 }
 
-html, body, [class*="css"] {
-    font-size: 18px;
-    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-    color: #000000 !important;
-}
+/* 指标卡片 */
 .metric-card {
-    background: linear-gradient(145deg, #f0f7ff 0%, #e6f0fa 100%);
+    background: rgba(1, 52, 117, 0.95);
+    backdrop-filter: blur(10px);
     border-radius: 16px;
     padding: 20px 16px;
-    border-left: 6px solid #1976D2;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    border-left: 6px solid #EE6F44;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.5);
     margin-bottom: 10px;
 }
-.metric-title { font-size: 20px; color: #000000; font-weight: 600; }
-.metric-value { font-size: 50px; font-weight: 800; color: #000000; line-height: 1.2; margin: 5px 0; }
-.metric-rate { font-size: 20px; color: #000000; font-weight: 600; }
+.metric-title { font-size: 20px; color: #EE6F44; font-weight: 600; }
+.metric-value { font-size: 50px; font-weight: 800; color: #EE6F44; line-height: 1.2; margin: 5px 0; }
+.metric-rate { font-size: 20px; color: #EE6F44; font-weight: 600; }
 
+/* 表格全局 */
 table {
     text-align: center !important;
     border-collapse: collapse;
-    color: #000000;
+    color: #FFFFFF;
+    background-color: #013475;
 }
 th {
-    background-color: #1a3b5c !important;
-    color: #ffffff !important;
+    background-color: #012A5E !important;
+    color: #EE6F44 !important;
     font-weight: 700;
     padding: 12px 8px !important;
     font-size: 20px;
+    border-bottom: 2px solid #FFFFFF;
 }
 td {
     padding: 12px 8px !important;
     font-size: 26px;
     font-weight: 600;
-    border-bottom: 1px solid #e0e0e0;
-    color: #000000;
+    border-bottom: 1px solid #FFFFFF;
+    color: #EE6F44;
     line-height: 1.8;
+    background-color: #013475;
 }
 .table-header {
     font-size: 22px;
     font-weight: 700;
-    color: #000000;
+    color: #EE6F44;
     margin: 15px 0 5px 0;
-    border-left: 5px solid #1976D2;
+    border-left: 5px solid #EE6F44;
     padding-left: 12px;
 }
 
+/* 下拉框间距 */
 .stSelectbox, .stMultiSelect {
     margin-bottom: 0.5rem !important;
 }
 
-/* ========== 固定主Tab ========== */
+/* 下拉框标签文字颜色 */
+.stSelectbox label, .stMultiSelect label, .stTextInput label {
+    color: #EE6F44 !important;
+    font-weight: 600 !important;
+}
+
+/* ========== 固定主Tab (朱柿) ========== */
 .stTabs [data-baseweb="tab-list"] {
     position: fixed !important;
     top: 3.5rem;
     z-index: 9999;
-    background: white;
-    border-bottom: 3px solid #1976D2;
+    background: #012A5E;
+    border-bottom: 3px solid #EE6F44;
     padding-top: 5px; padding-bottom: 5px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     width: calc(100% - 2rem);
     left: 1rem; right: 1rem;
 }
 .stTabs [data-baseweb="tab"] {
     font-size: 26px !important; font-weight: 800 !important;
-    height: 65px; color: #000000 !important;
+    height: 65px; color: #EE6F44 !important;
 }
 .stTabs [aria-selected="true"] {
-    color: #1976D2 !important;
-    border-bottom: 4px solid #1976D2 !important;
+    color: #EE6F44 !important;
+    border-bottom: 4px solid #EE6F44 !important;
 }
 .stTabs [role="tabpanel"] {
     padding-top: 130px !important;
 }
 
+/* 子Tab恢复正常流 */
 .stTabs .stTabs [data-baseweb="tab-list"] {
     position: static !important;
     width: 100% !important;
     left: auto !important; right: auto !important;
     box-shadow: none !important;
-    border-bottom: 2px solid #EEE !important;
+    border-bottom: 2px solid #EE6F44 !important;
     margin-top: 0 !important;
     padding-top: 0 !important; padding-bottom: 0 !important;
     z-index: auto !important;
+    background: transparent;
 }
 .stTabs .stTabs [role="tabpanel"] {
     padding-top: 0 !important;
@@ -126,37 +150,71 @@ td {
 .stTabs .stTabs [data-baseweb="tab"] {
     font-size: 20px !important;
     height: 50px !important;
+    color: #EE6F44 !important;
+}
+.stTabs .stTabs [aria-selected="true"] {
+    color: #EE6F44 !important;
+    border-bottom: 3px solid #EE6F44 !important;
 }
 
+/* 侧边栏 */
 section[data-testid="stSidebar"] {
-    background-color: #fafbfc;
-    border-right: 1px solid #e0e0e0;
+    background-color: #012A5E;
+    border-right: 1px solid #EE6F44;
 }
-/* 合并单元格表格样式 */
+section[data-testid="stSidebar"] .stMarkdown, 
+section[data-testid="stSidebar"] label {
+    color: #EE6F44 !important;
+}
+
+/* 合并单元格表格 */
 .merged-table td, .merged-table th {
     text-align: center !important;
     vertical-align: middle !important;
     padding: 10px 6px !important;
-    border: 1px solid #ddd !important;
+    border: 1px solid #FFFFFF !important;
     font-size: 22px !important;
     font-weight: 600 !important;
-    color: #000 !important;
+    color: #EE6F44 !important;
+    background-color: #013475;
 }
 .merged-table th {
-    background-color: #1a3b5c !important;
-    color: white !important;
+    background-color: #012A5E !important;
+    color: #EE6F44 !important;
     font-weight: 700 !important;
-    /* 表头冻结 */
     position: -webkit-sticky;
     position: sticky;
     top: 0;
     z-index: 10;
 }
-/* 滚动容器 */
 .scrollable-table {
     max-height: 600px;
     overflow-y: auto;
-    border: 1px solid #ccc;
+    border: 1px solid #FFFFFF;
+    background-color: #013475;
+}
+
+/* 按钮与输入框 */
+.stButton button, .stDownloadButton button {
+    background-color: #EE6F44;
+    color: #013475;
+    font-weight: 700;
+    border: none;
+}
+.stTextInput input, .stNumberInput input {
+    background-color: #012A5E;
+    color: #EE6F44;
+    border: 1px solid #EE6F44;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #012A5E; }
+::-webkit-scrollbar-thumb { background-color: #EE6F44; border-radius: 4px; }
+
+/* 提示文字（caption）设为白色 */
+.stCaption {
+    color: #FFFFFF !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -172,7 +230,7 @@ PRODUCTION_FILE = os.path.join(BASE_DIR, "data", "production", "production.xls")
 UF_DATA_DIR = os.path.join(BASE_DIR, "data", "uf_check")
 
 # =====================================================
-# 图表美化
+# 图表美化（华青背景+朱柿柱体）
 # =====================================================
 def style_bar_chart(fig, title):
     max_y = 0
@@ -180,16 +238,30 @@ def style_bar_chart(fig, title):
         if hasattr(trace, 'y') and len(trace.y) > 0:
             max_y = max(max_y, max(trace.y))
     fig.update_traces(
-        textfont=dict(size=20, color="black", family="Arial Black"),
+        textfont=dict(size=20, color="#EE6F44", family="Arial Black"),
         textposition="outside",
-        marker=dict(line=dict(width=1, color="#333333"))
+        marker=dict(
+            color='#EE6F44',
+            line=dict(width=1, color='#FFFFFF')
+        )
     )
     y_max = max_y * 1.15 if max_y > 0 else 1
     fig.update_layout(
-        template="plotly_white",
-        title=dict(text=title, font=dict(size=26, color="#000000")),
-        xaxis=dict(title=None, tickfont=dict(size=18, color="#000000")),
-        yaxis=dict(title=None, tickfont=dict(size=18, color="#000000"), range=[0, y_max]),
+        template="plotly_dark",
+        paper_bgcolor='rgba(1,52,117,1)',
+        plot_bgcolor='rgba(1,52,117,0.8)',
+        title=dict(text=title, font=dict(size=26, color="#EE6F44")),
+        xaxis=dict(
+            title=None,
+            tickfont=dict(size=18, color="#EE6F44"),
+            gridcolor='rgba(255,255,255,0.15)'
+        ),
+        yaxis=dict(
+            title=None,
+            tickfont=dict(size=18, color="#EE6F44"),
+            range=[0, y_max],
+            gridcolor='rgba(255,255,255,0.15)'
+        ),
         hoverlabel=dict(font_size=16),
         margin=dict(t=80, b=40, l=60, r=20)
     )
@@ -222,9 +294,9 @@ def short_name(text):
     return s[-3:] if len(s) >= 3 else s
 
 # =====================================================
-# 读取规则
+# 读取规则 (缓存优化)
 # =====================================================
-@st.cache_data
+@st.cache_data(ttl=300)
 def load_rule():
     if not os.path.exists(RULE_FILE):
         st.error(f"规则文件不存在：{RULE_FILE}")
@@ -239,7 +311,7 @@ def load_rule():
     return code_to_cause, code_to_shop, cause_to_shop
 
 # =====================================================
-# 日期文件 & 数据加载
+# 日期文件 & 数据加载 (缓存优化)
 # =====================================================
 def get_all_dates():
     files = []
@@ -251,7 +323,7 @@ def get_all_dates():
                 files.append(name)
     return sorted(files, reverse=True)
 
-@st.cache_data
+@st.cache_data(ttl=300)
 def load_raw(selected_dates):
     all_df = []
     for d in selected_dates:
@@ -327,7 +399,7 @@ def derive_columns(df, code_to_cause, code_to_shop, cause_to_shop):
     return df
 
 # =====================================================
-# 产量提取
+# 产量提取 (缓存优化)
 # =====================================================
 def extract_production(file_path, selected_dates):
     try:
@@ -371,14 +443,14 @@ def extract_production(file_path, selected_dates):
         st.warning(f"产量文件解析失败：{e}")
         return None
 
-@st.cache_data
+@st.cache_data(ttl=300)
 def load_production(selected_dates):
     if not os.path.exists(PRODUCTION_FILE):
         return None
     return extract_production(PRODUCTION_FILE, selected_dates)
 
 # =====================================================
-# UF检查数据加载
+# UF检查数据加载 (缓存优化)
 # =====================================================
 UF_COLUMNS = [
     "CWRFVOA_kgf", "CWRFVOA1H_kgf", "CWLFVOA_kgf",
@@ -386,7 +458,7 @@ UF_COLUMNS = [
     "CON_kgf", "Upper_g", "Lower_g"
 ]
 
-@st.cache_data
+@st.cache_data(ttl=300)
 def load_uf_check_data():
     all_uf = []
     if not os.path.exists(UF_DATA_DIR):
@@ -561,7 +633,7 @@ def render_uf_detail_table(df, uf_check_df, key_prefix):
     )
 
 # =====================================================
-# 合并单元格渲染函数（增加滚动容器，表头冻结）
+# 合并单元格渲染函数（滚动+冻结表头）
 # =====================================================
 def render_merged_person_table(person_df, person_col, type_col="类型", cause_col="病象", count_col="数量", total_col="合计", max_height="600px"):
     if person_df.empty:
@@ -733,7 +805,7 @@ def main():
 
         col_left, col_right = st.columns([1, 1.3])
         with col_left:
-            st.caption("单击行查看该病象/车间的条码明细")
+            st.markdown("<span style='color:#FFFFFF;'>单击行查看该病象/车间的条码明细</span>", unsafe_allow_html=True)
             event_summary = st.dataframe(
                 summary,
                 width='stretch',
@@ -754,7 +826,7 @@ def main():
                 if not detail.empty:
                     detail_cols = ["条码", "成型设备", "硫化机台", "规格", "花纹", "成型主手", "硫化人"]
                     detail_cols = [c for c in detail_cols if c in detail.columns]
-                    st.markdown(f"**{selected_cause}（{selected_shop}）的明细**")
+                    st.markdown(f"<span style='color:#EE6F44;'>{selected_cause}（{selected_shop}）的明细</span>", unsafe_allow_html=True)
                     st.dataframe(
                         detail[detail_cols],
                         width='stretch',
@@ -764,15 +836,14 @@ def main():
                 else:
                     st.info("无明细数据")
             else:
-                st.info("请单击左侧表格的行查看明细")
+                st.markdown("<span style='color:#FFFFFF;'>请单击左侧表格的行查看明细</span>", unsafe_allow_html=True)
 
         # ---------- 成型/硫化人员分析并排显示（不含返修，UF算成型） ----------
         st.subheader("成型/硫化人员分析（不含返修）")
         left_col, right_col = st.columns(2)
 
         with left_col:
-            st.markdown("**成型人员分析**")
-            # 成型车间 + UF次品，排除返修
+            st.markdown("<span style='color:#EE6F44; font-weight:bold; font-size:22px;'>成型人员分析</span>", unsafe_allow_html=True)
             condition = ((df["车间"] == "成型") | (df["类型"] == "次品UF")) & (df["类型"] != "返修")
             molding_data = df[condition]
             if not molding_data.empty:
@@ -785,8 +856,7 @@ def main():
                 st.info("无成型及UF数据")
 
         with right_col:
-            st.markdown("**硫化人员分析**")
-            # 硫化车间，仅废品和次品外观
+            st.markdown("<span style='color:#EE6F44; font-weight:bold; font-size:22px;'>硫化人员分析</span>", unsafe_allow_html=True)
             vul_data = df[(df["车间"] == "硫化") & (df["类型"].isin(["废品", "次品外观"]))]
             if not vul_data.empty:
                 person_detail = vul_data.groupby(["硫化人", "类型", "病象"]).size().reset_index(name="数量")
