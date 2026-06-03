@@ -416,7 +416,8 @@ def load_uf_check_data():
 def show_big_image(img_path):
     if os.path.exists(img_path):
         img = Image.open(img_path)
-        st.image(img, width='stretch')
+        # 固定宽度为700像素，高度等比缩放，避免图片过大
+        st.image(img, width=700)
     else:
         st.warning("图片文件不存在")
 
