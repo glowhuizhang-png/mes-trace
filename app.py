@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import os
 import re
 from datetime import timedelta
@@ -16,77 +17,87 @@ st.set_page_config(
 )
 
 # =====================================================
-# 工业风格样式（主Tab固定，子Tab不固定，表格字体加大）
+# 基础样式（固定Tab，大字体，浅色主题）
 # =====================================================
 st.markdown("""
 <style>
 html, body, [class*="css"] {
-    font-size: 16px;
+    font-size: 18px;
     font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-    color: #000000 !important;
 }
+h1 {
+    margin-top: 0 !important;
+    margin-bottom: 0.2rem !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    font-size: 32px !important;
+    font-weight: 800 !important;
+}
+.block-container {
+    padding-top: 0.5rem !important;
+}
+section.main > div {
+    padding-top: 0rem !important;
+}
+
 .metric-card {
-    background: linear-gradient(145deg, #f0f7ff 0%, #e6f0fa 100%);
+    background: #f8f9fa;
     border-radius: 16px;
     padding: 20px 16px;
     border-left: 6px solid #1976D2;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     margin-bottom: 10px;
 }
-.metric-title { font-size: 18px; color: #000000; font-weight: 600; }
-.metric-value { font-size: 46px; font-weight: 800; color: #000000; line-height: 1.2; margin: 5px 0; }
-.metric-rate { font-size: 18px; color: #000000; font-weight: 600; }
+.metric-title { font-size: 20px; font-weight: 600; }
+.metric-value { font-size: 50px; font-weight: 800; line-height: 1.2; margin: 5px 0; }
+.metric-rate { font-size: 20px; font-weight: 600; }
 
 table {
     text-align: center !important;
     border-collapse: collapse;
-    color: #000000;
 }
 th {
-    background-color: #1a3b5c !important;
-    color: #ffffff !important;
-    font-weight: 600;
+    background-color: #f0f2f6 !important;
+    font-weight: 700;
     padding: 12px 8px !important;
-    font-size: 16px;
+    font-size: 20px;
 }
 td {
     padding: 12px 8px !important;
-    font-size: 18px;
+    font-size: 26px;
+    font-weight: 600;
     border-bottom: 1px solid #e0e0e0;
-    color: #000000;
     line-height: 1.8;
 }
 .table-header {
     font-size: 22px;
     font-weight: 700;
-    color: #000000;
-    margin: 20px 0 10px 0;
+    margin: 15px 0 5px 0;
     border-left: 5px solid #1976D2;
     padding-left: 12px;
 }
 
-/* ========== 固定主Tab ========== */
 .stTabs [data-baseweb="tab-list"] {
     position: fixed !important;
     top: 3.5rem;
     z-index: 9999;
     background: white;
-    border-bottom: 3px solid #1976D2;
+    border-bottom: 2px solid #1976D2;
     padding-top: 5px; padding-bottom: 5px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     width: calc(100% - 2rem);
     left: 1rem; right: 1rem;
 }
 .stTabs [data-baseweb="tab"] {
-    font-size: 24px !important; font-weight: 700 !important;
-    height: 60px; color: #000000 !important;
+    font-size: 26px !important; font-weight: 800 !important;
+    height: 65px;
 }
 .stTabs [aria-selected="true"] {
     color: #1976D2 !important;
     border-bottom: 4px solid #1976D2 !important;
 }
 .stTabs [role="tabpanel"] {
-    padding-top: 120px !important;
+    padding-top: 130px !important;
 }
 
 .stTabs .stTabs [data-baseweb="tab-list"] {
@@ -98,29 +109,47 @@ td {
     margin-top: 0 !important;
     padding-top: 0 !important; padding-bottom: 0 !important;
     z-index: auto !important;
+    background: transparent;
 }
 .stTabs .stTabs [role="tabpanel"] {
     padding-top: 0 !important;
 }
 .stTabs .stTabs [data-baseweb="tab"] {
-    font-size: 18px !important;
-    height: 45px !important;
+    font-size: 20px !important;
+    height: 50px !important;
 }
 
-section[data-testid="stSidebar"] {
-    background-color: #fafbfc;
-    border-right: 1px solid #e0e0e0;
+.merged-table td, .merged-table th {
+    text-align: center !important;
+    vertical-align: middle !important;
+    padding: 10px 6px !important;
+    border: 1px solid #ddd !important;
+    font-size: 22px !important;
+    font-weight: 600 !important;
+}
+.merged-table th {
+    background-color: #f0f2f6 !important;
+    font-weight: 700 !important;
+    position: -webkit-sticky;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+.scrollable-table {
+    max-height: 600px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # =====================================================
-# 默认路径（已改为英文文件夹）
+# 默认路径
 # =====================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 RULE_FILE = os.path.join(BASE_DIR, "data", "0.rule.xlsx")
 RAW_DIR = os.path.join(BASE_DIR, "data", "raw_data")
-PHOTO_DIR = os.path.join(BASE_DIR, "data", "photos")
+PHOTO_BASE_DIR = os.path.join(BASE_DIR, "data", "photos")
 PRODUCTION_FILE = os.path.join(BASE_DIR, "data", "production", "production.xls")
 UF_DATA_DIR = os.path.join(BASE_DIR, "data", "uf_check")
 
@@ -137,23 +166,36 @@ def style_bar_chart(fig, title):
         textposition="outside",
         marker=dict(line=dict(width=1, color="#333333"))
     )
-    y_max = max_y * 1.2 if max_y > 0 else 1
+    y_max = max_y * 1.15 if max_y > 0 else 1
     fig.update_layout(
         template="plotly_white",
-        title=dict(text=title, font=dict(size=28, color="#000000")),
-        xaxis=dict(title_font=dict(size=20, color="#000000"), tickfont=dict(size=18, color="#000000")),
-        yaxis=dict(title_font=dict(size=20, color="#000000"), tickfont=dict(size=18, color="#000000"), range=[0, y_max]),
-        hoverlabel=dict(font_size=18),
-        margin=dict(t=100, b=50, l=80, r=40)
+        title=dict(text=title, font=dict(size=26)),
+        xaxis=dict(title=None, tickfont=dict(size=18)),
+        yaxis=dict(title=None, tickfont=dict(size=18), range=[0, y_max]),
+        hoverlabel=dict(font_size=16),
+        margin=dict(t=80, b=40, l=60, r=20)
     )
     return fig
 
 # =====================================================
 # 工具函数
 # =====================================================
+def full_to_half(text):
+    if pd.isna(text): return ""
+    s = str(text).strip()
+    full = '０１２３４５６７８９'
+    half = '0123456789'
+    trans = str.maketrans(full, half)
+    s = s.translate(trans)
+    s = s.replace('\u3000', '').strip()
+    return s
+
 def clean_str(x):
     if pd.isna(x): return ""
-    return re.sub(r"[\n\r\t]", "", str(x).strip().replace("　", " "))
+    s = str(x).strip()
+    s = s.replace("　", " ")
+    s = re.sub(r"[\n\r\t]", "", s)
+    return s
 
 def find_col(df, candidates):
     cols = [clean_str(c) for c in df.columns]
@@ -164,10 +206,20 @@ def find_col(df, candidates):
                 return df.columns[i]
     return None
 
+def extract_chinese(text):
+    if pd.isna(text): return ""
+    chinese = re.findall(r'[\u4e00-\u9fff]+', str(text))
+    return ' '.join(chinese) if chinese else str(text)
+
+def short_name(text):
+    if pd.isna(text): return ""
+    s = str(text).strip()
+    return s[-3:] if len(s) >= 3 else s
+
 # =====================================================
 # 读取规则
 # =====================================================
-@st.cache_data
+@st.cache_data(ttl=300)
 def load_rule():
     if not os.path.exists(RULE_FILE):
         st.error(f"规则文件不存在：{RULE_FILE}")
@@ -194,7 +246,7 @@ def get_all_dates():
                 files.append(name)
     return sorted(files, reverse=True)
 
-@st.cache_data
+@st.cache_data(ttl=300)
 def load_raw(selected_dates):
     all_df = []
     for d in selected_dates:
@@ -259,69 +311,67 @@ def derive_columns(df, code_to_cause, code_to_shop, cause_to_shop):
     for old, new in rename_map.items():
         if old in df.columns:
             df.rename(columns={old: new}, inplace=True)
+
+    if "条码" in df.columns:
+        df["条码"] = df["条码"].apply(full_to_half)
+
+    if "位置" in df.columns:
+        df["位置"] = df["位置"].apply(extract_chinese)
+
+    for col in ["成型设备", "硫化机台"]:
+        if col in df.columns:
+            df[col] = df[col].apply(short_name)
+
     return df
 
 # =====================================================
-# 产量提取（取最后有效值，已修复翻倍问题）
+# 产量提取（列求和）
 # =====================================================
-def extract_production(file_path, selected_dates):
+def extract_single_daily_production(file_path, date_str):
     try:
         df_prod = pd.read_excel(file_path, header=None, dtype=str)
-        # 清洗表头：去除所有空白字符
-        header_row = (
-            df_prod.iloc[0]
-            .fillna("")
-            .astype(str)
-            .apply(lambda x: re.sub(r"[\s　\n\r\t]+", "", x))
-            .tolist()
-        )
-        total = 0
-        # 日期去重，避免重复累加
-        unique_dates = list(set(selected_dates))
+        header_row = df_prod.iloc[0].fillna("").astype(str).str.strip()
+        header_row = [re.sub(r"[\s　\n\r\t]+", "", x) for x in header_row]
+        dt = pd.to_datetime(date_str, format='%Y%m%d')
+        patterns = [
+            f"{dt.month:02d}-{dt.day:02d}",
+            f"{dt.month}-{dt.day}",
+            f"{dt.month:02d}.{dt.day:02d}",
+            f"{dt.month}.{dt.day}",
+            f"{dt.month:02d}/{dt.day:02d}",
+            f"{dt.month}/{dt.day}",
+            f"{dt.month}月{dt.day}日",
+            f"{dt.year}-{dt.month:02d}-{dt.day:02d}",
+            f"{dt.year}/{dt.month:02d}/{dt.day:02d}",
+        ]
+        for i, cell in enumerate(header_row):
+            if cell in patterns:
+                col_data = df_prod.iloc[1:, i]
+                return pd.to_numeric(col_data, errors='coerce').sum()
+        return 0
+    except:
+        return 0
 
-        for date_str in unique_dates:
-            try:
-                dt = pd.to_datetime(date_str, format='%Y%m%d')
-                patterns = [
-                    f"{dt.month:02d}-{dt.day:02d}",
-                    f"{dt.month}-{dt.day}",
-                    f"{dt.month:02d}.{dt.day:02d}",
-                    f"{dt.month}.{dt.day}",
-                    f"{dt.month:02d}/{dt.day:02d}",
-                    f"{dt.month}/{dt.day}",
-                    f"{dt.month}月{dt.day}日",
-                    f"{dt.year}-{dt.month:02d}-{dt.day:02d}",
-                    f"{dt.year}/{dt.month:02d}/{dt.day:02d}",
-                ]
-            except:
-                continue
-
-            col_idx = None
-            for i, cell in enumerate(header_row):
-                if cell in patterns:
-                    col_idx = i
-                    break
-
-            if col_idx is not None:
-                col_data = df_prod.iloc[1:, col_idx]
-                # 对该列所有有效数值求和
-                daily_sum = pd.to_numeric(col_data, errors='coerce').sum()
-                total += daily_sum
-
-        return total
-
-    except Exception as e:
-        st.warning(f"产量文件解析失败：{e}")
-        return None
-
-@st.cache_data
+@st.cache_data(ttl=300)
 def load_production(selected_dates):
     if not os.path.exists(PRODUCTION_FILE):
         return None
-    return extract_production(PRODUCTION_FILE, selected_dates)
+    total = 0
+    for d in selected_dates:
+        total += extract_single_daily_production(PRODUCTION_FILE, d)
+    return total
+
+@st.cache_data(ttl=300)
+def load_daily_production_dict(selected_dates):
+    if not os.path.exists(PRODUCTION_FILE):
+        return {}
+    prod_dict = {}
+    for d in selected_dates:
+        prod_dict[d] = extract_single_daily_production(PRODUCTION_FILE, d)
+    return prod_dict
 
 # =====================================================
-# UF检查数据加载（文件夹内所有文件）
+# UF检查数据加载
 # =====================================================
 UF_COLUMNS = [
     "CWRFVOA_kgf", "CWRFVOA1H_kgf", "CWLFVOA_kgf",
@@ -329,7 +379,7 @@ UF_COLUMNS = [
     "CON_kgf", "Upper_g", "Lower_g"
 ]
 
-@st.cache_data
+@st.cache_data(ttl=300)
 def load_uf_check_data():
     all_uf = []
     if not os.path.exists(UF_DATA_DIR):
@@ -349,7 +399,7 @@ def load_uf_check_data():
                     barcode_col = "条码"
                 else:
                     df_uf.rename(columns={barcode_col: "条码"}, inplace=True)
-                df_uf["条码"] = df_uf["条码"].astype(str).str.strip()
+                df_uf["条码"] = df_uf["条码"].apply(full_to_half)
                 available = [c for c in UF_COLUMNS if c in df_uf.columns]
                 df_uf = df_uf[["条码"] + available].copy()
                 all_uf.append(df_uf)
@@ -360,52 +410,85 @@ def load_uf_check_data():
     return pd.DataFrame(columns=["条码"] + UF_COLUMNS)
 
 # =====================================================
-# 图片弹窗
+# 图片查找（按日期子文件夹，兼容旧结构）
 # =====================================================
 @st.dialog("轮胎照片", width="large")
 def show_big_image(img_path):
     if os.path.exists(img_path):
         img = Image.open(img_path)
-        st.image(img, width='stretch')
+        # 固定宽度为700像素，高度等比缩放，避免图片过大
+        st.image(img, width=700)
     else:
         st.warning("图片文件不存在")
 
-def trigger_image_popup(barcode):
-    barcode = str(barcode).strip()
+def find_photo(barcode, file_date=None):
+    barcode = full_to_half(str(barcode).strip())
+    if file_date:
+        date_folder = os.path.join(PHOTO_BASE_DIR, file_date)
+        if os.path.isdir(date_folder):
+            for ext in [".jpg", ".jpeg", ".png", ".JPG", ".JPEG", ".PNG"]:
+                fp = os.path.join(date_folder, barcode + ext)
+                if os.path.exists(fp):
+                    return fp
     for ext in [".jpg", ".jpeg", ".png", ".JPG", ".JPEG", ".PNG"]:
-        fp = os.path.join(PHOTO_DIR, barcode + ext)
+        fp = os.path.join(PHOTO_BASE_DIR, barcode + ext)
         if os.path.exists(fp):
-            show_big_image(fp)
-            return
-    st.warning(f"未找到图片：{barcode}")
+            return fp
+    return None
+
+def trigger_image_popup(barcode, file_date=None):
+    fp = find_photo(barcode, file_date)
+    if fp:
+        show_big_image(fp)
+    else:
+        st.warning(f"未找到图片：{barcode}")
 
 # =====================================================
-# 明细表
+# 通用明细表（6筛选 + 点击条码，传入日期）
 # =====================================================
-def render_detail_table(df, key_prefix):
+def render_detail_table(df, key_prefix, height=400, enable_click=True):
     if df.empty:
         st.info("无数据")
         return
 
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        shops = ["全部"] + sorted(df["车间"].dropna().astype(str).unique().tolist())
+    shop_order = ["密炼", "部件", "部件成型", "成型", "硫化", "工程", "工艺"]
+    all_shops = df["车间"].dropna().astype(str).unique().tolist()
+    sorted_shops = [s for s in shop_order if s in all_shops] + sorted([s for s in all_shops if s not in shop_order])
+    shops = ["全部"] + sorted_shops
+
+    causes = ["全部"] + sorted(df["病象"].dropna().astype(str).unique().tolist())
+    machines = ["全部"] + sorted(df["成型设备"].dropna().astype(str).unique().tolist())
+    masters = ["全部"] + sorted(df["成型主手"].dropna().astype(str).unique().tolist())
+    vul_machines = ["全部"] + sorted(df["硫化机台"].dropna().astype(str).unique().tolist())
+    vul_workers = ["全部"] + sorted(df["硫化人"].dropna().astype(str).unique().tolist())
+
+    cols = st.columns(6)
+    with cols[0]:
         selected_shop = st.selectbox("🏭 车间", shops, key=f"shop_{key_prefix}")
-    with col2:
-        causes = ["全部"] + sorted(df["病象"].dropna().astype(str).unique().tolist())
+    with cols[1]:
         selected_cause = st.selectbox("🔍 病象", causes, key=f"cause_{key_prefix}")
-    with col3:
-        masters = ["全部"] + sorted(df["成型主手"].dropna().astype(str).unique().tolist())
-        selected_master = st.selectbox("👤 成型主手", masters, key=f"master_{key_prefix}")
-    with col4:
-        machines = ["全部"] + sorted(df["成型设备"].dropna().astype(str).unique().tolist())
+    with cols[2]:
         selected_machine = st.selectbox("⚙️ 成型机", machines, key=f"machine_{key_prefix}")
+    with cols[3]:
+        selected_master = st.selectbox("👤 成型主手", masters, key=f"master_{key_prefix}")
+    with cols[4]:
+        selected_vul_machine = st.selectbox("🔥 硫化机", vul_machines, key=f"vul_machine_{key_prefix}")
+    with cols[5]:
+        selected_vul_worker = st.selectbox("👨‍🏭 硫化人", vul_workers, key=f"vul_worker_{key_prefix}")
 
     filtered_df = df.copy()
-    if selected_shop != "全部": filtered_df = filtered_df[filtered_df["车间"] == selected_shop]
-    if selected_cause != "全部": filtered_df = filtered_df[filtered_df["病象"] == selected_cause]
-    if selected_master != "全部": filtered_df = filtered_df[filtered_df["成型主手"] == selected_master]
-    if selected_machine != "全部": filtered_df = filtered_df[filtered_df["成型设备"] == selected_machine]
+    if selected_shop != "全部":
+        filtered_df = filtered_df[filtered_df["车间"] == selected_shop]
+    if selected_cause != "全部":
+        filtered_df = filtered_df[filtered_df["病象"] == selected_cause]
+    if selected_machine != "全部":
+        filtered_df = filtered_df[filtered_df["成型设备"] == selected_machine]
+    if selected_master != "全部":
+        filtered_df = filtered_df[filtered_df["成型主手"] == selected_master]
+    if selected_vul_machine != "全部":
+        filtered_df = filtered_df[filtered_df["硫化机台"] == selected_vul_machine]
+    if selected_vul_worker != "全部":
+        filtered_df = filtered_df[filtered_df["硫化人"] == selected_vul_worker]
 
     if filtered_df.empty:
         st.warning("无符合条件的数据")
@@ -417,22 +500,34 @@ def render_detail_table(df, key_prefix):
 
     st.markdown("<div class='table-header'>📋 明细数据</div>", unsafe_allow_html=True)
 
-    event = st.dataframe(
-        filtered_df[show_cols],
-        width='stretch',
-        height=400,
-        hide_index=True,
-        selection_mode="single-row",
-        on_select="rerun",
-        key=f"detail_table_{key_prefix}"
-    )
+    if enable_click:
+        event = st.dataframe(
+            filtered_df[show_cols],
+            width='stretch',
+            height=height,
+            hide_index=True,
+            selection_mode="single-row",
+            on_select="rerun",
+            key=f"detail_table_{key_prefix}"
+        )
+        if event.selection.rows:
+            selected_row = event.selection.rows[0]
+            barcode = str(filtered_df.iloc[selected_row]["条码"])
+            file_date = str(filtered_df.iloc[selected_row]["文件日期"])
+            trigger_image_popup(barcode, file_date)
+    else:
+        st.dataframe(
+            filtered_df[show_cols],
+            width='stretch',
+            height=height,
+            hide_index=True,
+            key=f"detail_table_{key_prefix}"
+        )
 
-    if event.selection.rows:
-        selected_row = event.selection.rows[0]
-        barcode = str(filtered_df.iloc[selected_row]["条码"])
-        trigger_image_popup(barcode)
-
-def render_uf_detail_table(df, uf_check_df, key_prefix):
+# =====================================================
+# UF专用明细表（成型设备列前移，排序，高度16行）
+# =====================================================
+def render_uf_detail_table(df, uf_check_df, key_prefix, height=620):
     if not uf_check_df.empty:
         df["条码"] = df["条码"].astype(str).str.strip()
         uf_check_df["条码"] = uf_check_df["条码"].astype(str).str.strip()
@@ -445,6 +540,8 @@ def render_uf_detail_table(df, uf_check_df, key_prefix):
     if merged.empty:
         st.info("无数据")
         return
+
+    merged = merged.sort_values(["成型设备", "规格", "成型主手"])
 
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -469,7 +566,7 @@ def render_uf_detail_table(df, uf_check_df, key_prefix):
         st.warning("无符合条件的数据")
         return
 
-    base_cols = ["条码", "硫化机台", "成型设备", "成型时间", "成型主手", "规格", "花纹"]
+    base_cols = ["条码", "成型设备", "硫化机台", "成型时间", "成型主手", "规格", "花纹"]
     base_cols = [c for c in base_cols if c in filtered.columns]
     show_cols = base_cols + UF_COLUMNS
 
@@ -477,9 +574,63 @@ def render_uf_detail_table(df, uf_check_df, key_prefix):
     st.dataframe(
         filtered[show_cols],
         width='stretch',
-        height=400,
+        height=height,
         hide_index=True
     )
+
+# =====================================================
+# 合并单元格人员分析表
+# =====================================================
+def render_merged_person_table(person_df, person_col, type_col="类型", cause_col="病象", count_col="数量", total_col="合计", max_height="600px"):
+    if person_df.empty:
+        st.info("无数据")
+        return
+
+    cols = [person_col, type_col, cause_col, count_col, total_col]
+    for c in cols:
+        if c not in person_df.columns:
+            st.error(f"缺少列: {c}")
+            return
+
+    html = f'<div class="scrollable-table" style="max-height: {max_height};">'
+    html += '<table class="merged-table" style="width:100%">'
+    html += f'<thead><tr><th>{person_col}</th><th>{type_col}</th><th>{cause_col}</th><th>{count_col}</th><th>{total_col}</th></tr></thead>'
+    html += '<tbody>'
+
+    n = len(person_df)
+    i = 0
+    while i < n:
+        current_person = person_df.iloc[i][person_col]
+        person_end = i
+        while person_end < n and person_df.iloc[person_end][person_col] == current_person:
+            person_end += 1
+        person_span = person_end - i
+
+        j = i
+        while j < person_end:
+            current_type = person_df.iloc[j][type_col]
+            type_end = j
+            while type_end < person_end and person_df.iloc[type_end][type_col] == current_type:
+                type_end += 1
+            type_span = type_end - j
+
+            for k in range(j, type_end):
+                row = "<tr>"
+                if k == i:
+                    row += f'<td rowspan="{person_span}" style="vertical-align: middle;">{current_person}</td>'
+                if k == j:
+                    row += f'<td rowspan="{type_span}" style="vertical-align: middle;">{current_type}</td>'
+                row += f'<td>{person_df.iloc[k][cause_col]}</td>'
+                row += f'<td>{person_df.iloc[k][count_col]}</td>'
+                if k == i:
+                    row += f'<td rowspan="{person_span}" style="vertical-align: middle;">{person_df.iloc[k][total_col]}</td>'
+                row += '</tr>'
+                html += row
+            j = type_end
+        i = person_end
+
+    html += '</tbody></table></div>'
+    st.markdown(html, unsafe_allow_html=True)
 
 # =====================================================
 # 主程序
@@ -494,24 +645,15 @@ def main():
         selected_dates = st.multiselect("选择分析日期", all_dates, default=all_dates[:1] if all_dates else [])
 
         total_production = 0
+        daily_prod_dict = {}
         if selected_dates:
             auto_prod = load_production(selected_dates)
             if auto_prod is not None:
                 total_production = auto_prod
+                daily_prod_dict = load_daily_production_dict(selected_dates)
                 st.metric("硫化产量（自动提取）", f"{total_production:,.0f}")
             else:
                 st.warning("自动提取失败，请手动上传产量文件")
-                uploaded_file = st.file_uploader("上传硫化产量Excel", type=["xls", "xlsx"], key="prod_upload")
-                if uploaded_file is not None:
-                    with st.spinner("正在解析产量..."):
-                        with open("temp_production.xlsx", "wb") as f:
-                            f.write(uploaded_file.getbuffer())
-                        total_production = extract_production("temp_production.xlsx", selected_dates)
-                        if total_production is not None:
-                            st.success(f"已提取产量：{total_production:,.0f}")
-                        else:
-                            st.error("产量文件格式不正确")
-                            total_production = 0
         else:
             st.warning("请选择日期")
 
@@ -521,7 +663,7 @@ def main():
         st.write("原始数据")
         st.code(RAW_DIR)
         st.write("照片库")
-        st.code(PHOTO_DIR)
+        st.code(PHOTO_BASE_DIR)
 
     if not selected_dates:
         st.warning("请选择日期")
@@ -556,7 +698,28 @@ def main():
         waste_rate = app_rate = uf_rate = 0
         qual_rate = 1
 
-    tab1, tab2, tab3 = st.tabs(["综合看板", "废品分析", "次品分析"])
+    # 趋势图数据准备（使用每日产量）
+    daily_stats = None
+    if len(selected_dates) > 1 and daily_prod_dict:
+        daily_list = []
+        for d in selected_dates:
+            day_data = df[df["文件日期"] == d]
+            day_prod = daily_prod_dict.get(d, 0)
+            if day_prod > 0:
+                day_waste = len(day_data[day_data["类型"] == "废品"])
+                day_app = len(day_data[day_data["类型"] == "次品外观"])
+                day_uf = len(day_data[day_data["类型"] == "次品UF"])
+                daily_list.append({
+                    "日期": pd.to_datetime(d, format='%Y%m%d').strftime('%m/%d'),
+                    "废品率": day_waste / day_prod,
+                    "外观次品率": day_app / day_prod,
+                    "UF次品率": day_uf / day_prod,
+                    "综合合格率": 1 - (day_waste + day_app + day_uf) / day_prod
+                })
+        if daily_list:
+            daily_stats = pd.DataFrame(daily_list)
+
+    tab1, tab2, tab3, tab4 = st.tabs(["综合看板", "外观废次品分析", "UF次品", "成型/硫化人员分析"])
 
     with tab1:
         c1, c2, c3, c4 = st.columns(4)
@@ -579,51 +742,203 @@ def main():
         c1, c2 = st.columns(2)
 
         fig1 = px.bar(waste_shop, x="车间", y="数量", text="数量", text_auto=True)
-        c1.plotly_chart(style_bar_chart(fig1, "废品车间分析"), width='stretch', key="tab1_waste_shop")
+        c1.plotly_chart(style_bar_chart(fig1, "废品车间分布"), width='stretch', key="tab1_waste_shop")
 
         fig2 = px.bar(app_shop, x="车间", y="数量", text="数量", text_auto=True)
-        c2.plotly_chart(style_bar_chart(fig2, "次品外观车间分析"), width='stretch', key="tab1_app_shop")
+        c2.plotly_chart(style_bar_chart(fig2, "次品外观车间分布"), width='stretch', key="tab1_app_shop")
 
         fig3 = px.bar(uf_mac, x="成型设备", y="数量", text="数量", text_auto=True)
-        st.plotly_chart(style_bar_chart(fig3, "UF次品成型机分析"), width='stretch', key="tab1_uf_mac")
+        st.plotly_chart(style_bar_chart(fig3, "UF次品成型机分布"), width='stretch', key="tab1_uf_mac")
 
-        st.subheader("废品 + 次品外观 综合分析")
+        if daily_stats is not None and not daily_stats.empty:
+            # ---------- 废品率趋势（纵坐标0~0.15%，显示轴线）----------
+            st.subheader("废品率趋势")
+            target_waste = 0.0006
+            fig_waste = go.Figure()
+            colors = ['red' if v > target_waste else '#1f77b4' for v in daily_stats["废品率"]]
+            fig_waste.add_trace(go.Scatter(
+                x=daily_stats["日期"], y=daily_stats["废品率"],
+                mode='lines+markers+text',
+                text=[f"{v:.4%}" for v in daily_stats["废品率"]],
+                textposition='top center',
+                textfont=dict(size=12),
+                line=dict(color='#1f77b4', width=2),
+                marker=dict(size=8, color=colors, line=dict(width=0.75, color='white')),
+            ))
+            fig_waste.add_hline(y=target_waste, line_dash="dot", line_color="red",
+                                annotation_text="目标0.06%", annotation_position="bottom right")
+            fig_waste.update_layout(
+                template="plotly_white",
+                title="废品率趋势",
+                xaxis=dict(title=None, showline=True, linewidth=1, linecolor='gray'),
+                yaxis=dict(title="废品率", tickformat='.2%', range=[0, 0.0015], showline=True, linewidth=1, linecolor='gray'),
+                showlegend=False, height=350, margin=dict(t=60, b=40, l=40, r=20)
+            )
+            st.plotly_chart(fig_waste, width='stretch', key="waste_trend")
+
+            # ---------- 综合合格率趋势（纵坐标99%~100%，显示轴线）----------
+            st.subheader("综合合格率趋势")
+            target_qual = 0.993
+            fig_qual = go.Figure()
+            fig_qual.add_trace(go.Scatter(
+                x=daily_stats["日期"], y=daily_stats["综合合格率"],
+                mode='lines+markers+text',
+                text=[f"{v:.2%}" for v in daily_stats["综合合格率"]],
+                textposition='top center',
+                textfont=dict(size=12),
+                line=dict(color='green', width=2),
+                marker=dict(size=8, color='green', line=dict(width=0.75, color='white')),
+            ))
+            fig_qual.add_hline(y=target_qual, line_dash="dot", line_color="red",
+                               annotation_text="目标99.3%", annotation_position="bottom right")
+            fig_qual.update_layout(
+                template="plotly_white",
+                title="综合合格率趋势",
+                xaxis=dict(title=None, showline=True, linewidth=1, linecolor='gray'),
+                yaxis=dict(title="合格率", tickformat='.2%', range=[0.99, 1.0], showline=True, linewidth=1, linecolor='gray'),
+                showlegend=False, height=350, margin=dict(t=60, b=40, l=40, r=20)
+            )
+            st.plotly_chart(fig_qual, width='stretch', key="qual_trend")
+
+            # ---------- 次品率趋势（外观+UF，纵坐标0.02%~0.6%，显示轴线）----------
+            st.subheader("外观次品率及UF次品率趋势")
+            fig_app_uf = go.Figure()
+            fig_app_uf.add_trace(go.Scatter(
+                x=daily_stats["日期"], y=daily_stats["外观次品率"],
+                mode='lines+markers+text',
+                name='外观次品率',
+                text=[f"{v:.4%}" for v in daily_stats["外观次品率"]],
+                textposition='top center',
+                textfont=dict(size=12),
+                line=dict(color='orange', width=2),
+                marker=dict(size=8, line=dict(width=0.75, color='white')),
+            ))
+            fig_app_uf.add_trace(go.Scatter(
+                x=daily_stats["日期"], y=daily_stats["UF次品率"],
+                mode='lines+markers+text',
+                name='UF次品率',
+                text=[f"{v:.4%}" for v in daily_stats["UF次品率"]],
+                textposition='top center',
+                textfont=dict(size=12),
+                line=dict(color='purple', width=2),
+                marker=dict(size=8, line=dict(width=0.75, color='white')),
+            ))
+            fig_app_uf.update_layout(
+                template="plotly_white",
+                title="外观次品率及UF次品率趋势",
+                xaxis=dict(title=None, showline=True, linewidth=1, linecolor='gray'),
+                yaxis=dict(title="比率", tickformat='.2%', range=[0.0002, 0.006], showline=True, linewidth=1, linecolor='gray'),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                height=350, margin=dict(t=60, b=40, l=40, r=20)
+            )
+            st.plotly_chart(fig_app_uf, width='stretch', key="app_uf_trend")
+
+    with tab2:
+        st.subheader("外观废次品分析")
         combined = df[df["类型"].isin(["废品", "次品外观"])]
+
+        type_order = {"废品": 0, "次品外观": 1}
+        combined["类型排序"] = combined["类型"].map(type_order)
+        shop_order_list = ["密炼", "部件", "部件成型", "成型", "硫化", "工程", "工艺"]
+        combined["车间排序"] = combined["车间"].apply(lambda x: shop_order_list.index(x) if x in shop_order_list else 99)
+        combined = combined.sort_values(["类型排序", "车间排序", "病象", "成型设备", "规格"])
+        combined.drop(columns=["类型排序", "车间排序"], inplace=True)
+
         summary = combined.groupby(["病象", "车间"]).agg(
             总数=("类型", "count"),
             废品数=("类型", lambda x: (x == "废品").sum()),
             次品数=("类型", lambda x: (x == "次品外观").sum())
         ).reset_index()
         summary = summary[["病象", "总数", "废品数", "次品数", "车间"]].sort_values("总数", ascending=False)
-        st.dataframe(summary, width='stretch', hide_index=True)
 
-        st.subheader("成型机 × 病象矩阵")
-        pivot = pd.pivot_table(combined, index="成型设备", columns="病象", values="条码", aggfunc="count", fill_value=0)
-        pivot["合计"] = pivot.sum(axis=1)
-        cols = ["合计"] + [c for c in pivot.columns if c != "合计"]
-        pivot = pivot[cols]
-        pivot = pivot[pivot.sum(axis=0).sort_values(ascending=False).index]
-        st.dataframe(pivot, width='stretch')
+        col_left, col_right = st.columns([1, 1.3])
+        with col_left:
+            st.caption("单击行查看该病象/车间的条码明细")
+            event_summary = st.dataframe(
+                summary,
+                width='stretch',
+                height=400,
+                hide_index=True,
+                selection_mode="single-row",
+                on_select="rerun",
+                key="summary_table"
+            )
 
-    with tab2:
-        st.subheader("废品分析")
-        fig = px.bar(waste_shop, x="车间", y="数量", text="数量", text_auto=True)
-        st.plotly_chart(style_bar_chart(fig, "废品车间分析"), width='stretch', key="tab2_waste_shop")
-        render_detail_table(waste_df, "waste")
+        with col_right:
+            if event_summary.selection.rows:
+                selected_row = event_summary.selection.rows[0]
+                selected_data = summary.iloc[selected_row]
+                selected_cause = selected_data["病象"]
+                selected_shop = selected_data["车间"]
+                detail = combined[(combined["病象"] == selected_cause) & (combined["车间"] == selected_shop)]
+                if not detail.empty:
+                    detail_cols = ["条码", "类型", "成型设备", "硫化机台", "规格", "花纹", "成型主手", "硫化人"]
+                    detail_cols = [c for c in detail_cols if c in detail.columns]
+                    st.markdown(f"**{selected_cause}（{selected_shop}）的明细**")
+                    event_detail = st.dataframe(
+                        detail[detail_cols],
+                        width='stretch',
+                        height=400,
+                        hide_index=True,
+                        selection_mode="single-row",
+                        on_select="rerun",
+                        key=f"detail_summary_{selected_row}"
+                    )
+                    if event_detail.selection.rows:
+                        detail_row = event_detail.selection.rows[0]
+                        barcode = str(detail.iloc[detail_row]["条码"])
+                        file_date = str(detail.iloc[detail_row]["文件日期"])
+                        trigger_image_popup(barcode, file_date)
+                else:
+                    st.info("无明细数据")
+            else:
+                st.info("请单击左侧表格的行查看明细")
+
+        st.divider()
+        waste_type = st.radio("选择明细类型", ["全选", "废品", "外观次品"], horizontal=True)
+        if waste_type == "全选":
+            render_detail_table(combined, "all_detail", height=400, enable_click=False)
+        elif waste_type == "废品":
+            render_detail_table(waste_df, "waste_detail", height=400, enable_click=True)
+        else:
+            render_detail_table(app_df, "app_detail", height=400, enable_click=True)
 
     with tab3:
-        sub1, sub2 = st.tabs(["外观次品", "UF次品"])
-        with sub1:
-            fig = px.bar(app_shop, x="车间", y="数量", text="数量", text_auto=True)
-            st.plotly_chart(style_bar_chart(fig, "外观次品车间分析"), width='stretch', key="tab3_app_shop")
-            render_detail_table(app_df, "app")
-        with sub2:
-            st.subheader("UF 次品分析")
-            uf_mac_all = uf_df["成型设备"].value_counts().reset_index()
-            uf_mac_all.columns = ["成型设备", "数量"]
-            fig_uf = px.bar(uf_mac_all, x="成型设备", y="数量", text="数量", text_auto=True)
-            st.plotly_chart(style_bar_chart(fig_uf, "UF次品按成型机分布"), width='stretch', key="tab3_uf_mac")
-            render_uf_detail_table(uf_df, uf_check_data, "uf_detail")
+        st.subheader("UF 次品分析")
+        uf_mac_all = uf_df["成型设备"].value_counts().reset_index()
+        uf_mac_all.columns = ["成型设备", "数量"]
+        fig_uf = px.bar(uf_mac_all, x="成型设备", y="数量", text="数量", text_auto=True)
+        st.plotly_chart(style_bar_chart(fig_uf, "UF次品成型机分布"), width='stretch', key="tab3_uf_mac")
+        render_uf_detail_table(uf_df, uf_check_data, "uf_detail", height=620)
+
+    with tab4:
+        st.subheader("成型/硫化人员分析（不含返修）")
+        left_col, right_col = st.columns(2)
+
+        with left_col:
+            st.markdown("**成型人员分析**")
+            condition = ((df["车间"] == "成型") | (df["类型"] == "次品UF")) & (df["类型"] != "返修")
+            molding_data = df[condition]
+            if not molding_data.empty:
+                person_detail = molding_data.groupby(["成型主手", "类型", "病象"]).size().reset_index(name="数量")
+                person_detail["合计"] = person_detail.groupby("成型主手")["数量"].transform("sum")
+                person_detail = person_detail.sort_values(["合计", "成型主手", "类型", "病象"],
+                                                          ascending=[False, True, True, True])
+                render_merged_person_table(person_detail, "成型主手", max_height="600px")
+            else:
+                st.info("无成型及UF数据")
+
+        with right_col:
+            st.markdown("**硫化人员分析**")
+            vul_data = df[(df["车间"] == "硫化") & (df["类型"].isin(["废品", "次品外观"]))]
+            if not vul_data.empty:
+                person_detail = vul_data.groupby(["硫化人", "类型", "病象"]).size().reset_index(name="数量")
+                person_detail["合计"] = person_detail.groupby("硫化人")["数量"].transform("sum")
+                person_detail = person_detail.sort_values(["合计", "硫化人", "类型", "病象"],
+                                                          ascending=[False, True, True, True])
+                render_merged_person_table(person_detail, "硫化人", max_height="600px")
+            else:
+                st.info("无硫化数据（废品/次品外观）")
 
 if __name__ == "__main__":
     main()
