@@ -17,14 +17,22 @@ st.set_page_config(
 )
 
 # =====================================================
-# 基础样式（固定Tab，大字体，浅色主题）
+# 全局字体微软雅黑 + 表格缩放放大 (1.5倍)
 # =====================================================
 st.markdown("""
 <style>
-html, body, [class*="css"] {
-    font-size: 18px;
-    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+/* 全局强制微软雅黑 */
+* {
+    font-family: 'Microsoft YaHei', sans-serif !important;
 }
+html, body, [class*="css"], .stApp, .stMarkdown, .stText, .stDataFrame, .stTable, .stSelectbox, .stMultiSelect, .stRadio, .stCheckbox, .stButton, .stDownloadButton, .stTabs, .stTab, .stCaption, .stMetric, .stHeader, .stSubheader, .stTitle, .stPlotlyChart {
+    font-family: 'Microsoft YaHei', sans-serif !important;
+}
+/* 表格内部文字强制 */
+table, th, td, tr, thead, tbody, tfoot, caption {
+    font-family: 'Microsoft YaHei', sans-serif !important;
+}
+/* 标题 */
 h1 {
     margin-top: 0 !important;
     margin-bottom: 0.2rem !important;
@@ -52,6 +60,15 @@ section.main > div {
 .metric-value { font-size: 50px; font-weight: 800; line-height: 1.2; margin: 5px 0; }
 .metric-rate { font-size: 20px; font-weight: 600; }
 
+/* 表格缩放：放大1.5倍 */
+[data-testid="stDataFrameGlideDataEditor"] {
+    zoom: 1.5;
+}
+[data-testid="stDataEditor"] {
+    zoom: 1.5;
+}
+
+/* 普通表格样式 */
 table {
     text-align: center !important;
     border-collapse: collapse;
@@ -59,15 +76,15 @@ table {
 th {
     background-color: #f0f2f6 !important;
     font-weight: 700;
-    padding: 12px 8px !important;
-    font-size: 20px;
+    padding: 14px 6px !important;
+    font-size: 24px;
 }
 td {
-    padding: 12px 8px !important;
-    font-size: 26px;
-    font-weight: 600;
+    padding: 14px 6px !important;
+    font-size: 36px !important;
+    font-weight: 700;
     border-bottom: 1px solid #e0e0e0;
-    line-height: 1.8;
+    line-height: 1.6;
 }
 .table-header {
     font-size: 22px;
@@ -162,16 +179,16 @@ def style_bar_chart(fig, title):
         if hasattr(trace, 'y') and len(trace.y) > 0:
             max_y = max(max_y, max(trace.y))
     fig.update_traces(
-        textfont=dict(size=20, color="black", family="Arial Black"),
+        textfont=dict(size=20, color="black", family="Microsoft YaHei"),
         textposition="outside",
         marker=dict(line=dict(width=1, color="#333333"))
     )
     y_max = max_y * 1.15 if max_y > 0 else 1
     fig.update_layout(
         template="plotly_white",
-        title=dict(text=title, font=dict(size=26)),
-        xaxis=dict(title=None, tickfont=dict(size=18)),
-        yaxis=dict(title=None, tickfont=dict(size=18), range=[0, y_max]),
+        title=dict(text=title, font=dict(size=26, family="Microsoft YaHei")),
+        xaxis=dict(title=None, tickfont=dict(size=18, family="Microsoft YaHei")),
+        yaxis=dict(title=None, tickfont=dict(size=18, family="Microsoft YaHei"), range=[0, y_max]),
         hoverlabel=dict(font_size=16),
         margin=dict(t=80, b=40, l=60, r=20)
     )
@@ -264,7 +281,7 @@ def load_raw(selected_dates):
     return pd.concat(all_df, ignore_index=True) if all_df else pd.DataFrame()
 
 # =====================================================
-# 派生字段
+# 派生字段（列名简化）
 # =====================================================
 def derive_columns(df, code_to_cause, code_to_shop, cause_to_shop):
     df = df.copy()
@@ -275,7 +292,7 @@ def derive_columns(df, code_to_cause, code_to_shop, cause_to_shop):
     col_build = find_col(df, ["成型机台", "成型设备", "机台"])
     col_vul = find_col(df, ["硫化日期", "日期"])
 
-    df["成型设备"] = df[col_build] if col_build else "未知"
+    df["成型"] = df[col_build] if col_build else "未知"
     df["类型"] = "其他"
     if col_detect:
         df.loc[df[col_detect].astype(str).str.strip() == "废品", "类型"] = "废品"
@@ -304,9 +321,9 @@ def derive_columns(df, code_to_cause, code_to_shop, cause_to_shop):
         )
 
     rename_map = {
-        "模具位置":"位置", "上下模":"位置", "硫化机台":"硫化机台",
+        "模具位置":"位置", "上下模":"位置", "硫化机台":"硫化",
         "成型主手":"成型主手", "花纹":"花纹", "规格":"规格",
-        "成型时间":"成型时间", "硫化人":"硫化人", "条码":"条码"
+        "成型时间":"成型时间", "硫化人":"硫化主手", "条码":"条码"
     }
     for old, new in rename_map.items():
         if old in df.columns:
@@ -318,9 +335,10 @@ def derive_columns(df, code_to_cause, code_to_shop, cause_to_shop):
     if "位置" in df.columns:
         df["位置"] = df["位置"].apply(extract_chinese)
 
-    for col in ["成型设备", "硫化机台"]:
-        if col in df.columns:
-            df[col] = df[col].apply(short_name)
+    if "成型" in df.columns:
+        df["成型"] = df["成型"].apply(short_name)
+    if "硫化" in df.columns:
+        df["硫化"] = df["硫化"].apply(short_name)
 
     return df
 
@@ -410,13 +428,12 @@ def load_uf_check_data():
     return pd.DataFrame(columns=["条码"] + UF_COLUMNS)
 
 # =====================================================
-# 图片查找（按日期子文件夹，兼容旧结构）
+# 图片查找
 # =====================================================
 @st.dialog("轮胎照片", width="large")
 def show_big_image(img_path):
     if os.path.exists(img_path):
         img = Image.open(img_path)
-        # 固定宽度为700像素，高度等比缩放，避免图片过大
         st.image(img, width=700)
     else:
         st.warning("图片文件不存在")
@@ -444,9 +461,9 @@ def trigger_image_popup(barcode, file_date=None):
         st.warning(f"未找到图片：{barcode}")
 
 # =====================================================
-# 通用明细表（6筛选 + 点击条码，传入日期）
+# 通用明细表（交互式，保留 st.dataframe，依靠 zoom 放大）
 # =====================================================
-def render_detail_table(df, key_prefix, height=400, enable_click=True):
+def render_detail_table(df, key_prefix, height=500, enable_click=True):  # 高度调整为500
     if df.empty:
         st.info("无数据")
         return
@@ -457,10 +474,10 @@ def render_detail_table(df, key_prefix, height=400, enable_click=True):
     shops = ["全部"] + sorted_shops
 
     causes = ["全部"] + sorted(df["病象"].dropna().astype(str).unique().tolist())
-    machines = ["全部"] + sorted(df["成型设备"].dropna().astype(str).unique().tolist())
+    machines = ["全部"] + sorted(df["成型"].dropna().astype(str).unique().tolist())
     masters = ["全部"] + sorted(df["成型主手"].dropna().astype(str).unique().tolist())
-    vul_machines = ["全部"] + sorted(df["硫化机台"].dropna().astype(str).unique().tolist())
-    vul_workers = ["全部"] + sorted(df["硫化人"].dropna().astype(str).unique().tolist())
+    vul_machines = ["全部"] + sorted(df["硫化"].dropna().astype(str).unique().tolist())
+    vul_workers = ["全部"] + sorted(df["硫化主手"].dropna().astype(str).unique().tolist())
 
     cols = st.columns(6)
     with cols[0]:
@@ -468,13 +485,13 @@ def render_detail_table(df, key_prefix, height=400, enable_click=True):
     with cols[1]:
         selected_cause = st.selectbox("🔍 病象", causes, key=f"cause_{key_prefix}")
     with cols[2]:
-        selected_machine = st.selectbox("⚙️ 成型机", machines, key=f"machine_{key_prefix}")
+        selected_machine = st.selectbox("⚙️ 成型", machines, key=f"machine_{key_prefix}")
     with cols[3]:
         selected_master = st.selectbox("👤 成型主手", masters, key=f"master_{key_prefix}")
     with cols[4]:
-        selected_vul_machine = st.selectbox("🔥 硫化机", vul_machines, key=f"vul_machine_{key_prefix}")
+        selected_vul_machine = st.selectbox("🔥 硫化", vul_machines, key=f"vul_machine_{key_prefix}")
     with cols[5]:
-        selected_vul_worker = st.selectbox("👨‍🏭 硫化人", vul_workers, key=f"vul_worker_{key_prefix}")
+        selected_vul_worker = st.selectbox("👨‍🏭 硫化主手", vul_workers, key=f"vul_worker_{key_prefix}")
 
     filtered_df = df.copy()
     if selected_shop != "全部":
@@ -482,20 +499,20 @@ def render_detail_table(df, key_prefix, height=400, enable_click=True):
     if selected_cause != "全部":
         filtered_df = filtered_df[filtered_df["病象"] == selected_cause]
     if selected_machine != "全部":
-        filtered_df = filtered_df[filtered_df["成型设备"] == selected_machine]
+        filtered_df = filtered_df[filtered_df["成型"] == selected_machine]
     if selected_master != "全部":
         filtered_df = filtered_df[filtered_df["成型主手"] == selected_master]
     if selected_vul_machine != "全部":
-        filtered_df = filtered_df[filtered_df["硫化机台"] == selected_vul_machine]
+        filtered_df = filtered_df[filtered_df["硫化"] == selected_vul_machine]
     if selected_vul_worker != "全部":
-        filtered_df = filtered_df[filtered_df["硫化人"] == selected_vul_worker]
+        filtered_df = filtered_df[filtered_df["硫化主手"] == selected_vul_worker]
 
     if filtered_df.empty:
         st.warning("无符合条件的数据")
         return
 
-    show_cols = ["病象", "条码", "硫化机台", "硫化人", "硫化日期",
-                 "成型设备", "成型时间", "成型主手", "规格", "花纹", "位置", "车间"]
+    show_cols = ["病象", "条码", "硫化", "硫化主手", "硫化日期",
+                 "成型", "成型时间", "成型主手", "规格", "花纹", "位置", "车间"]
     show_cols = [c for c in show_cols if c in filtered_df.columns]
 
     st.markdown("<div class='table-header'>📋 明细数据</div>", unsafe_allow_html=True)
@@ -525,7 +542,7 @@ def render_detail_table(df, key_prefix, height=400, enable_click=True):
         )
 
 # =====================================================
-# UF专用明细表（成型设备列前移，排序，高度16行）
+# UF专用明细表（保留 st.dataframe，依靠 zoom 放大）
 # =====================================================
 def render_uf_detail_table(df, uf_check_df, key_prefix, height=620):
     if not uf_check_df.empty:
@@ -541,12 +558,12 @@ def render_uf_detail_table(df, uf_check_df, key_prefix, height=620):
         st.info("无数据")
         return
 
-    merged = merged.sort_values(["成型设备", "规格", "成型主手"])
+    merged = merged.sort_values(["成型", "规格", "成型主手"])
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        machines = ["全部"] + sorted(merged["成型设备"].dropna().astype(str).unique().tolist())
-        selected_machine = st.selectbox("⚙️ 成型机", machines, key=f"uf_machine_{key_prefix}")
+        machines = ["全部"] + sorted(merged["成型"].dropna().astype(str).unique().tolist())
+        selected_machine = st.selectbox("⚙️ 成型", machines, key=f"uf_machine_{key_prefix}")
     with col2:
         specs = ["全部"] + sorted(merged["规格"].dropna().astype(str).unique().tolist())
         selected_spec = st.selectbox("📏 规格", specs, key=f"uf_spec_{key_prefix}")
@@ -556,7 +573,7 @@ def render_uf_detail_table(df, uf_check_df, key_prefix, height=620):
 
     filtered = merged.copy()
     if selected_machine != "全部":
-        filtered = filtered[filtered["成型设备"] == selected_machine]
+        filtered = filtered[filtered["成型"] == selected_machine]
     if selected_spec != "全部":
         filtered = filtered[filtered["规格"] == selected_spec]
     if selected_pattern != "全部":
@@ -566,7 +583,7 @@ def render_uf_detail_table(df, uf_check_df, key_prefix, height=620):
         st.warning("无符合条件的数据")
         return
 
-    base_cols = ["条码", "成型设备", "硫化机台", "成型时间", "成型主手", "规格", "花纹"]
+    base_cols = ["条码", "成型", "硫化", "成型时间", "成型主手", "规格", "花纹"]
     base_cols = [c for c in base_cols if c in filtered.columns]
     show_cols = base_cols + UF_COLUMNS
 
@@ -579,23 +596,27 @@ def render_uf_detail_table(df, uf_check_df, key_prefix, height=620):
     )
 
 # =====================================================
-# 合并单元格人员分析表
+# 人员分析合并表格（自定义 HTML，字体已较大）
 # =====================================================
-def render_merged_person_table(person_df, person_col, type_col="类型", cause_col="病象", count_col="数量", total_col="合计", max_height="600px"):
+def render_merged_person_table(person_df, person_col, type_col="类型", cause_col="病象", count_col="数量", total_col="合计", max_height="600px", extra_col=None):
     if person_df.empty:
         st.info("无数据")
         return
 
-    cols = [person_col, type_col, cause_col, count_col, total_col]
-    for c in cols:
+    if extra_col and extra_col in person_df.columns:
+        col_order = [person_col, extra_col, type_col, cause_col, count_col, total_col]
+    else:
+        col_order = [person_col, type_col, cause_col, count_col, total_col]
+
+    for c in col_order:
         if c not in person_df.columns:
             st.error(f"缺少列: {c}")
             return
 
     html = f'<div class="scrollable-table" style="max-height: {max_height};">'
     html += '<table class="merged-table" style="width:100%">'
-    html += f'<thead><tr><th>{person_col}</th><th>{type_col}</th><th>{cause_col}</th><th>{count_col}</th><th>{total_col}</th></tr></thead>'
-    html += '<tbody>'
+    header = '<tr>' + ''.join([f'<th>{c}</th>' for c in col_order]) + '</tr>'
+    html += f'<thead>{header}</thead><tbody>'
 
     n = len(person_df)
     i = 0
@@ -618,6 +639,8 @@ def render_merged_person_table(person_df, person_col, type_col="类型", cause_c
                 row = "<tr>"
                 if k == i:
                     row += f'<td rowspan="{person_span}" style="vertical-align: middle;">{current_person}</td>'
+                if extra_col and extra_col in person_df.columns:
+                    row += f'<td>{person_df.iloc[k][extra_col]}</td>'
                 if k == j:
                     row += f'<td rowspan="{type_span}" style="vertical-align: middle;">{current_type}</td>'
                 row += f'<td>{person_df.iloc[k][cause_col]}</td>'
@@ -684,8 +707,8 @@ def main():
     waste_shop.columns = ["车间", "数量"]
     app_shop = app_df["车间"].value_counts().reset_index()
     app_shop.columns = ["车间", "数量"]
-    uf_mac = uf_df["成型设备"].value_counts().reset_index()
-    uf_mac.columns = ["成型设备", "数量"]
+    uf_mac = uf_df["成型"].value_counts().reset_index()
+    uf_mac.columns = ["成型", "数量"]
 
     uf_check_data = load_uf_check_data()
 
@@ -698,11 +721,11 @@ def main():
         waste_rate = app_rate = uf_rate = 0
         qual_rate = 1
 
-    # 趋势图数据准备（使用每日产量）
+    # 趋势图数据准备（按日期排序）
     daily_stats = None
     if len(selected_dates) > 1 and daily_prod_dict:
         daily_list = []
-        for d in selected_dates:
+        for d in sorted(selected_dates):
             day_data = df[df["文件日期"] == d]
             day_prod = daily_prod_dict.get(d, 0)
             if day_prod > 0:
@@ -747,11 +770,11 @@ def main():
         fig2 = px.bar(app_shop, x="车间", y="数量", text="数量", text_auto=True)
         c2.plotly_chart(style_bar_chart(fig2, "次品外观车间分布"), width='stretch', key="tab1_app_shop")
 
-        fig3 = px.bar(uf_mac, x="成型设备", y="数量", text="数量", text_auto=True)
+        fig3 = px.bar(uf_mac, x="成型", y="数量", text="数量", text_auto=True)
         st.plotly_chart(style_bar_chart(fig3, "UF次品成型机分布"), width='stretch', key="tab1_uf_mac")
 
         if daily_stats is not None and not daily_stats.empty:
-            # ---------- 废品率趋势（纵坐标0~0.15%，显示轴线）----------
+            # 废品率趋势
             st.subheader("废品率趋势")
             target_waste = 0.0006
             fig_waste = go.Figure()
@@ -761,22 +784,21 @@ def main():
                 mode='lines+markers+text',
                 text=[f"{v:.4%}" for v in daily_stats["废品率"]],
                 textposition='top center',
-                textfont=dict(size=12),
+                textfont=dict(size=15, color='black', family='Microsoft YaHei'),
                 line=dict(color='#1f77b4', width=2),
                 marker=dict(size=8, color=colors, line=dict(width=0.75, color='white')),
             ))
             fig_waste.add_hline(y=target_waste, line_dash="dot", line_color="red",
                                 annotation_text="目标0.06%", annotation_position="bottom right")
             fig_waste.update_layout(
-                template="plotly_white",
-                title="废品率趋势",
-                xaxis=dict(title=None, showline=True, linewidth=1, linecolor='gray'),
-                yaxis=dict(title="废品率", tickformat='.2%', range=[0, 0.0015], showline=True, linewidth=1, linecolor='gray'),
+                template="plotly_white", title="废品率趋势",
+                xaxis=dict(title=None, showline=True, linewidth=1, linecolor='gray', tickfont=dict(family='Microsoft YaHei')),
+                yaxis=dict(title="废品率", tickformat='.2%', range=[0, 0.0015], showline=True, linewidth=1, linecolor='gray', tickfont=dict(family='Microsoft YaHei')),
                 showlegend=False, height=350, margin=dict(t=60, b=40, l=40, r=20)
             )
             st.plotly_chart(fig_waste, width='stretch', key="waste_trend")
 
-            # ---------- 综合合格率趋势（纵坐标99%~100%，显示轴线）----------
+            # 综合合格率趋势
             st.subheader("综合合格率趋势")
             target_qual = 0.993
             fig_qual = go.Figure()
@@ -785,22 +807,21 @@ def main():
                 mode='lines+markers+text',
                 text=[f"{v:.2%}" for v in daily_stats["综合合格率"]],
                 textposition='top center',
-                textfont=dict(size=12),
+                textfont=dict(size=15, color='black', family='Microsoft YaHei'),
                 line=dict(color='green', width=2),
                 marker=dict(size=8, color='green', line=dict(width=0.75, color='white')),
             ))
             fig_qual.add_hline(y=target_qual, line_dash="dot", line_color="red",
                                annotation_text="目标99.3%", annotation_position="bottom right")
             fig_qual.update_layout(
-                template="plotly_white",
-                title="综合合格率趋势",
-                xaxis=dict(title=None, showline=True, linewidth=1, linecolor='gray'),
-                yaxis=dict(title="合格率", tickformat='.2%', range=[0.99, 1.0], showline=True, linewidth=1, linecolor='gray'),
+                template="plotly_white", title="综合合格率趋势",
+                xaxis=dict(title=None, showline=True, linewidth=1, linecolor='gray', tickfont=dict(family='Microsoft YaHei')),
+                yaxis=dict(title="合格率", tickformat='.2%', range=[0.99, 1.0], showline=True, linewidth=1, linecolor='gray', tickfont=dict(family='Microsoft YaHei')),
                 showlegend=False, height=350, margin=dict(t=60, b=40, l=40, r=20)
             )
             st.plotly_chart(fig_qual, width='stretch', key="qual_trend")
 
-            # ---------- 次品率趋势（外观+UF，纵坐标0.02%~0.6%，显示轴线）----------
+            # 外观次品率及UF次品率趋势
             st.subheader("外观次品率及UF次品率趋势")
             fig_app_uf = go.Figure()
             fig_app_uf.add_trace(go.Scatter(
@@ -809,7 +830,7 @@ def main():
                 name='外观次品率',
                 text=[f"{v:.4%}" for v in daily_stats["外观次品率"]],
                 textposition='top center',
-                textfont=dict(size=12),
+                textfont=dict(size=15, color='black', family='Microsoft YaHei'),
                 line=dict(color='orange', width=2),
                 marker=dict(size=8, line=dict(width=0.75, color='white')),
             ))
@@ -819,16 +840,15 @@ def main():
                 name='UF次品率',
                 text=[f"{v:.4%}" for v in daily_stats["UF次品率"]],
                 textposition='top center',
-                textfont=dict(size=12),
+                textfont=dict(size=15, color='black', family='Microsoft YaHei'),
                 line=dict(color='purple', width=2),
                 marker=dict(size=8, line=dict(width=0.75, color='white')),
             ))
             fig_app_uf.update_layout(
-                template="plotly_white",
-                title="外观次品率及UF次品率趋势",
-                xaxis=dict(title=None, showline=True, linewidth=1, linecolor='gray'),
-                yaxis=dict(title="比率", tickformat='.2%', range=[0.0002, 0.006], showline=True, linewidth=1, linecolor='gray'),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                template="plotly_white", title="外观次品率及UF次品率趋势",
+                xaxis=dict(title=None, showline=True, linewidth=1, linecolor='gray', tickfont=dict(family='Microsoft YaHei')),
+                yaxis=dict(title="比率", tickformat='.2%', range=[0.0002, 0.006], showline=True, linewidth=1, linecolor='gray', tickfont=dict(family='Microsoft YaHei')),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, font=dict(family='Microsoft YaHei')),
                 height=350, margin=dict(t=60, b=40, l=40, r=20)
             )
             st.plotly_chart(fig_app_uf, width='stretch', key="app_uf_trend")
@@ -841,23 +861,24 @@ def main():
         combined["类型排序"] = combined["类型"].map(type_order)
         shop_order_list = ["密炼", "部件", "部件成型", "成型", "硫化", "工程", "工艺"]
         combined["车间排序"] = combined["车间"].apply(lambda x: shop_order_list.index(x) if x in shop_order_list else 99)
-        combined = combined.sort_values(["类型排序", "车间排序", "病象", "成型设备", "规格"])
+        combined = combined.sort_values(["类型排序", "车间排序", "病象", "成型", "规格"])
         combined.drop(columns=["类型排序", "车间排序"], inplace=True)
 
         summary = combined.groupby(["病象", "车间"]).agg(
             总数=("类型", "count"),
-            废品数=("类型", lambda x: (x == "废品").sum()),
-            次品数=("类型", lambda x: (x == "次品外观").sum())
+            废品=("类型", lambda x: (x == "废品").sum()),
+            次品=("类型", lambda x: (x == "次品外观").sum())
         ).reset_index()
-        summary = summary[["病象", "总数", "废品数", "次品数", "车间"]].sort_values("总数", ascending=False)
+        summary = summary[["病象", "总数", "废品", "次品", "车间"]].sort_values("总数", ascending=False)
 
         col_left, col_right = st.columns([1, 1.3])
         with col_left:
             st.caption("单击行查看该病象/车间的条码明细")
+            # 汇总表高度调整为500
             event_summary = st.dataframe(
                 summary,
                 width='stretch',
-                height=400,
+                height=500,
                 hide_index=True,
                 selection_mode="single-row",
                 on_select="rerun",
@@ -872,13 +893,14 @@ def main():
                 selected_shop = selected_data["车间"]
                 detail = combined[(combined["病象"] == selected_cause) & (combined["车间"] == selected_shop)]
                 if not detail.empty:
-                    detail_cols = ["条码", "类型", "成型设备", "硫化机台", "规格", "花纹", "成型主手", "硫化人"]
+                    detail_cols = ["条码", "类型", "成型", "硫化", "规格", "花纹", "成型主手", "硫化主手"]
                     detail_cols = [c for c in detail_cols if c in detail.columns]
                     st.markdown(f"**{selected_cause}（{selected_shop}）的明细**")
+                    # 右侧明细表高度调整为500
                     event_detail = st.dataframe(
                         detail[detail_cols],
                         width='stretch',
-                        height=400,
+                        height=500,
                         hide_index=True,
                         selection_mode="single-row",
                         on_select="rerun",
@@ -897,17 +919,106 @@ def main():
         st.divider()
         waste_type = st.radio("选择明细类型", ["全选", "废品", "外观次品"], horizontal=True)
         if waste_type == "全选":
-            render_detail_table(combined, "all_detail", height=400, enable_click=False)
+            render_detail_table(combined, "all_detail", height=500, enable_click=False)
         elif waste_type == "废品":
-            render_detail_table(waste_df, "waste_detail", height=400, enable_click=True)
+            render_detail_table(waste_df, "waste_detail", height=500, enable_click=True)
         else:
-            render_detail_table(app_df, "app_detail", height=400, enable_click=True)
+            render_detail_table(app_df, "app_detail", height=500, enable_click=True)
+
+        # -------- 机台统计（日期/病象切换，增加总计行，病象列降序）--------
+        st.divider()
+        st.subheader("机台统计")
+
+        stat_type = st.radio("统计类型", ["日期统计", "病象统计"], horizontal=True, key="stat_type")
+        dimension = st.radio("统计维度", ["全部", "成型", "硫化"], horizontal=True, key="machine_dimension")
+
+        if dimension == "硫化":
+            base_data = df[(df["车间"] == "硫化") & (df["类型"].isin(["废品", "次品外观"]))]
+            group_col = "硫化"
+        else:
+            if dimension == "成型":
+                base_data = df[((df["车间"] == "成型") | (df["类型"] == "次品UF")) & (df["类型"].isin(["废品", "次品外观", "次品UF"]))]
+            else:
+                base_data = df[df["类型"].isin(["废品", "次品外观", "次品UF"])]
+            group_col = "成型"
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            type_filter = st.selectbox("类型", ["全部", "废品", "次品", "UF次品"], key="machine_date_type")
+        with col2:
+            available_shops = base_data["车间"].dropna().unique().tolist()
+            sorted_shop_options = ["全部"] + [s for s in shop_order_list if s in available_shops] + [s for s in available_shops if s not in shop_order_list]
+            selected_shop_machine = st.selectbox("🏭 车间", sorted_shop_options, key="machine_date_shop")
+        with col3:
+            filtered_temp = base_data.copy()
+            if type_filter == "废品":
+                filtered_temp = filtered_temp[filtered_temp["类型"] == "废品"]
+            elif type_filter == "次品":
+                filtered_temp = filtered_temp[filtered_temp["类型"] == "次品外观"]
+            elif type_filter == "UF次品":
+                filtered_temp = filtered_temp[filtered_temp["类型"] == "次品UF"]
+            if selected_shop_machine != "全部":
+                filtered_temp = filtered_temp[filtered_temp["车间"] == selected_shop_machine]
+            defect_options = ["全部"] + sorted(filtered_temp["病象"].dropna().unique().tolist())
+            selected_defect = st.selectbox("🔍 缺陷", defect_options, key="machine_date_defect")
+
+        if type_filter == "废品":
+            base_data = base_data[base_data["类型"] == "废品"]
+        elif type_filter == "次品":
+            base_data = base_data[base_data["类型"] == "次品外观"]
+        elif type_filter == "UF次品":
+            base_data = base_data[base_data["类型"] == "次品UF"]
+        if selected_shop_machine != "全部":
+            base_data = base_data[base_data["车间"] == selected_shop_machine]
+        if selected_defect != "全部":
+            base_data = base_data[base_data["病象"] == selected_defect]
+
+        if not base_data.empty:
+            if stat_type == "日期统计":
+                if selected_dates:
+                    pivot = base_data.groupby([group_col, "文件日期"]).size().unstack(fill_value=0)
+                    sorted_dates = sorted(selected_dates)
+                    date_columns = [d for d in sorted_dates if d in pivot.columns]
+                    if not date_columns:
+                        date_columns = sorted(pivot.columns.tolist())
+                    pivot = pivot[date_columns]
+                    pivot.insert(0, "合计", pivot.sum(axis=1))
+                    rename_dates = {d: pd.to_datetime(d, format='%Y%m%d').strftime('%m/%d') for d in date_columns}
+                    pivot.rename(columns=rename_dates, inplace=True)
+                    # 增加总计行
+                    total_row = pd.DataFrame(pivot.sum(axis=0)).T
+                    total_row[group_col] = "总计"
+                    pivot = pd.concat([total_row, pivot.reset_index()], ignore_index=True)
+                    pivot = pivot[[group_col] + ["合计"] + [c for c in pivot.columns if c not in [group_col, "合计"]]]
+                    pivot = pivot.sort_values("合计", ascending=False)
+                    st.data_editor(
+                        pivot, disabled=True, use_container_width=True, height=550, hide_index=True, key="machine_date_editor"
+                    )
+                else:
+                    st.info("请至少选择一个日期")
+            else:
+                pivot = base_data.groupby([group_col, "病象"]).size().unstack(fill_value=0)
+                # 病象列按总和降序排列
+                cause_totals = pivot.sum(axis=0).sort_values(ascending=False)
+                pivot = pivot[cause_totals.index]
+                pivot["合计"] = pivot.sum(axis=1)
+                # 增加总计行
+                total_row = pd.DataFrame(pivot.sum(axis=0)).T
+                total_row[group_col] = "总计"
+                pivot = pd.concat([total_row, pivot.reset_index()], ignore_index=True)
+                pivot = pivot[[group_col, "合计"] + list(cause_totals.index)]
+                pivot = pivot.sort_values("合计", ascending=False)
+                st.data_editor(
+                    pivot, disabled=True, use_container_width=True, height=550, hide_index=True, key="machine_cause_editor"
+                )
+        else:
+            st.info("无数据")
 
     with tab3:
         st.subheader("UF 次品分析")
-        uf_mac_all = uf_df["成型设备"].value_counts().reset_index()
-        uf_mac_all.columns = ["成型设备", "数量"]
-        fig_uf = px.bar(uf_mac_all, x="成型设备", y="数量", text="数量", text_auto=True)
+        uf_mac_all = uf_df["成型"].value_counts().reset_index()
+        uf_mac_all.columns = ["成型", "数量"]
+        fig_uf = px.bar(uf_mac_all, x="成型", y="数量", text="数量", text_auto=True)
         st.plotly_chart(style_bar_chart(fig_uf, "UF次品成型机分布"), width='stretch', key="tab3_uf_mac")
         render_uf_detail_table(uf_df, uf_check_data, "uf_detail", height=620)
 
@@ -917,26 +1028,38 @@ def main():
 
         with left_col:
             st.markdown("**成型人员分析**")
+            show_molding_machine = st.checkbox("显示成型机台", value=True)   # 已包含切换
             condition = ((df["车间"] == "成型") | (df["类型"] == "次品UF")) & (df["类型"] != "返修")
             molding_data = df[condition]
             if not molding_data.empty:
-                person_detail = molding_data.groupby(["成型主手", "类型", "病象"]).size().reset_index(name="数量")
+                if show_molding_machine:
+                    person_detail = molding_data.groupby(["成型主手", "成型", "类型", "病象"]).size().reset_index(name="数量")
+                    extra = "成型"
+                else:
+                    person_detail = molding_data.groupby(["成型主手", "类型", "病象"]).size().reset_index(name="数量")
+                    extra = None
                 person_detail["合计"] = person_detail.groupby("成型主手")["数量"].transform("sum")
                 person_detail = person_detail.sort_values(["合计", "成型主手", "类型", "病象"],
                                                           ascending=[False, True, True, True])
-                render_merged_person_table(person_detail, "成型主手", max_height="600px")
+                render_merged_person_table(person_detail, "成型主手", extra_col=extra)
             else:
                 st.info("无成型及UF数据")
 
         with right_col:
             st.markdown("**硫化人员分析**")
+            show_vul_machine = st.checkbox("显示硫化机台", value=True)
             vul_data = df[(df["车间"] == "硫化") & (df["类型"].isin(["废品", "次品外观"]))]
             if not vul_data.empty:
-                person_detail = vul_data.groupby(["硫化人", "类型", "病象"]).size().reset_index(name="数量")
-                person_detail["合计"] = person_detail.groupby("硫化人")["数量"].transform("sum")
-                person_detail = person_detail.sort_values(["合计", "硫化人", "类型", "病象"],
+                if show_vul_machine:
+                    person_detail = vul_data.groupby(["硫化主手", "硫化", "类型", "病象"]).size().reset_index(name="数量")
+                    extra = "硫化"
+                else:
+                    person_detail = vul_data.groupby(["硫化主手", "类型", "病象"]).size().reset_index(name="数量")
+                    extra = None
+                person_detail["合计"] = person_detail.groupby("硫化主手")["数量"].transform("sum")
+                person_detail = person_detail.sort_values(["合计", "硫化主手", "类型", "病象"],
                                                           ascending=[False, True, True, True])
-                render_merged_person_table(person_detail, "硫化人", max_height="600px")
+                render_merged_person_table(person_detail, "硫化主手", extra_col=extra)
             else:
                 st.info("无硫化数据（废品/次品外观）")
 
