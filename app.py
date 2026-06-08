@@ -136,7 +136,7 @@ td {
     height: 50px !important;
 }
 
-/* 合并单元格表格样式（用于人员分析）保持原样 */
+/* 人员分析合并表格样式（保持原样） */
 .merged-table td, .merged-table th {
     text-align: center !important;
     vertical-align: middle !important;
@@ -154,18 +154,18 @@ td {
     z-index: 10;
 }
 
-/* 返修分析专用合并表格 */
+/* 返修分析专用合并表格（字体缩小，列宽优化） */
 .merged-repair-table td, .merged-repair-table th {
     text-align: center !important;
     vertical-align: middle !important;
-    padding: 8px 4px !important;
+    padding: 6px 3px !important;
     border: 1px solid #ddd !important;
-    font-size: 20px !important;
-    font-weight: 600 !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
 }
 .merged-repair-table th {
     background-color: #f0f2f6 !important;
-    font-weight: 700 !important;
+    font-weight: 600 !important;
     position: sticky;
     top: 0;
     z-index: 10;
@@ -678,22 +678,17 @@ def render_merged_person_table(person_df, person_col, type_col="类型", cause_c
 # 返修分析合并表格（带排序和缺陷筛选）
 # =====================================================
 def render_repair_table(repair_df, defect_filter="全部"):
-    """
-    repair_df 必须包含列：胎胚编码、成品名称、成型机、硫化机、返修缺陷、数量
-    并且已按层级排序。
-    """
     if repair_df.empty:
         st.info("无返修数据")
         return
 
-    # 根据缺陷筛选
     if defect_filter != "全部":
         repair_df = repair_df[repair_df["返修缺陷"] == defect_filter].copy()
         if repair_df.empty:
             st.info(f"无缺陷为“{defect_filter}”的数据")
             return
 
-    # 重新计算排序：先按胎胚编码总计数降序，再成品名称计数降序，再成型机计数降序，再硫化机计数降序，再单个计数降序
+    # 重新计算排序层级
     repair_df["胎胚总计数"] = repair_df.groupby("胎胚编码")["数量"].transform("sum")
     repair_df["成品计数"] = repair_df.groupby(["胎胚编码", "成品名称"])["数量"].transform("sum")
     repair_df["成型机计数"] = repair_df.groupby(["胎胚编码", "成品名称", "成型机"])["数量"].transform("sum")
@@ -703,14 +698,19 @@ def render_repair_table(repair_df, defect_filter="全部"):
         ascending=[False, False, False, False, False],
         inplace=True
     )
-    # 删除辅助列
     repair_df.drop(columns=["胎胚总计数", "成品计数", "成型机计数", "硫化机计数"], inplace=True)
 
-    # 渲染合并表格
-    cols_order = ["胎胚编码", "成品名称", "成型机", "硫化机", "返修缺陷", "数量"]
+    # 渲染合并表格（最终列宽：胎胚编码10% 成品名称46% 成型机9% 硫化机9% 返修缺陷16% 数量10%）
     html = '<div class="scrollable-table" style="max-height: 600px;">'
     html += '<table class="merged-repair-table" style="width:100%">'
-    html += '<thead><tr><th>胎胚编码</th><th>成品名称</th><th>成型机</th><th>硫化机</th><th>返修缺陷</th><th>数量</th></tr></thead>'
+    html += '<thead><tr>'
+    html += '<th style="width:10%">胎胚编码</th>'
+    html += '<th style="width:46%">成品名称</th>'
+    html += '<th style="width:9%">成型机</th>'
+    html += '<th style="width:9%">硫化机</th>'
+    html += '<th style="width:16%">返修缺陷</th>'
+    html += '<th style="width:10%">数量</th>'
+    html += '</tr></thead>'
     html += '<tbody>'
 
     n = len(repair_df)
@@ -741,14 +741,14 @@ def render_repair_table(repair_df, defect_filter="全部"):
                 for m in range(k, machine_end):
                     row = "<tr>"
                     if m == i:
-                        row += f'<td rowspan="{code_span}" style="vertical-align: middle;">{current_code}</td>'
+                        row += f'<td rowspan="{code_span}" style="vertical-align: middle; width:10%">{current_code}</td>'
                     if m == j:
-                        row += f'<td rowspan="{name_span}" style="vertical-align: middle;">{current_name}</td>'
+                        row += f'<td rowspan="{name_span}" style="vertical-align: middle; width:46%">{current_name}</td>'
                     if m == k:
-                        row += f'<td rowspan="{machine_span}" style="vertical-align: middle;">{current_machine}</td>'
-                    row += f'<td>{repair_df.iloc[m]["硫化机"]}</td>'
-                    row += f'<td>{repair_df.iloc[m]["返修缺陷"]}</td>'
-                    row += f'<td>{repair_df.iloc[m]["数量"]}</td>'
+                        row += f'<td rowspan="{machine_span}" style="vertical-align: middle; width:9%">{current_machine}</td>'
+                    row += f'<td style="width:9%">{repair_df.iloc[m]["硫化机"]}</td>'
+                    row += f'<td style="width:16%">{repair_df.iloc[m]["返修缺陷"]}</td>'
+                    row += f'<td style="width:10%">{repair_df.iloc[m]["数量"]}</td>'
                     row += '</tr>'
                     html += row
                 k = machine_end
@@ -1190,8 +1190,9 @@ def main():
 
     with tab5:
         st.subheader("返修分析")
+
         if not repair_df.empty:
-            # 1. 查找列名
+            # 查找列名
             tire_code_col = None
             for col in repair_df.columns:
                 if "胎胚编码" in col:
@@ -1208,7 +1209,7 @@ def main():
             if not product_name_col:
                 product_name_col = "规格"
 
-            # 2. 分组计数
+            # 分组计数
             grouped = repair_df.groupby([tire_code_col, product_name_col, "成型", "硫化", "病象"]).size().reset_index(name="数量")
             grouped.rename(columns={
                 tire_code_col: "胎胚编码",
@@ -1218,14 +1219,67 @@ def main():
                 "病象": "返修缺陷"
             }, inplace=True)
 
-            # 3. 计算总计数用于排序（在筛选前先获取所有缺陷列表）
-            defect_options = ["全部"] + sorted(grouped["返修缺陷"].unique().tolist())
+            # 按缺陷总计数降序排列选项
+            defect_counts = grouped.groupby("返修缺陷")["数量"].sum().sort_values(ascending=False)
+            defect_options = ["全部"] + defect_counts.index.tolist()
             selected_defect = st.selectbox("选择返修缺陷", defect_options, key="repair_defect_select")
 
-            # 4. 渲染表格（内部实现筛选和排序）
+            # 图片查看输入框
+            col_input, col_btn = st.columns([4, 1])
+            with col_input:
+                repair_barcode = st.text_input("输入胎胚编码查看图片", key="repair_barcode_input")
+            with col_btn:
+                if st.button("查看图片", key="repair_view_btn"):
+                    if repair_barcode.strip():
+                        trigger_image_popup(repair_barcode.strip())
+                    else:
+                        st.warning("请输入胎胚编码")
+
+            # 合并层级视图
             render_repair_table(grouped, selected_defect)
+
+            # -------- 胎胚编码/规格 ×日期分布 --------
+            if len(selected_dates) > 1:
+                st.divider()
+                st.subheader("胎胚编码/规格 ×日期分布")
+
+                # 独立的返修缺陷筛选按钮（用于趋势表）
+                trend_defect = st.selectbox("趋势图返修缺陷筛选", defect_options, key="trend_defect_select")
+
+                trend_data = repair_df.copy()
+                if trend_defect != "全部":
+                    trend_data = trend_data[trend_data["病象"] == trend_defect]
+
+                if not trend_data.empty:
+                    # 按胎胚编码、规格和文件日期计数
+                    pivot = trend_data.groupby(["胎胚编码", "规格", "文件日期"]).size().unstack(fill_value=0)
+                    # 确保日期顺序
+                    sorted_dates = sorted(selected_dates)
+                    date_columns = [d for d in sorted_dates if d in pivot.columns]
+                    if not date_columns:
+                        date_columns = sorted(pivot.columns.tolist())
+                    pivot = pivot[date_columns]
+                    pivot.insert(0, "合计", pivot.sum(axis=1))
+                    # 重命名日期列为 mm/dd
+                    rename_dates = {d: pd.to_datetime(d, format='%Y%m%d').strftime('%m/%d') for d in date_columns}
+                    pivot.rename(columns=rename_dates, inplace=True)
+                    # 增加总计行
+                    total_row = pd.DataFrame(pivot.sum(axis=0)).T
+                    total_row["胎胚编码"] = "总计"
+                    total_row["规格"] = ""
+                    pivot = pd.concat([total_row, pivot.reset_index()], ignore_index=True)
+                    pivot = pivot[["胎胚编码", "规格", "合计"] + [c for c in pivot.columns if c not in ["胎胚编码", "规格", "合计"]]]
+                    pivot = pivot.sort_values("合计", ascending=False)
+                    st.dataframe(pivot, use_container_width=True, hide_index=True, height=500)
+                else:
+                    st.info("无返修数据")
         else:
             st.info("无返修数据")
+
+# =====================================================
+# 自动部署版本号（更新代码时递增可触发重新部署）
+# =====================================================
+APP_VERSION = "20260608_007"
 
 if __name__ == "__main__":
     main()
