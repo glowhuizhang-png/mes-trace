@@ -17,7 +17,7 @@ st.set_page_config(
 )
 
 # =====================================================
-# 全局字体微软雅黑 + 表格缩放放大 (1.5倍)
+# 全局字体微软雅黑 + 表格缩放放大 (1.3倍)
 # =====================================================
 st.markdown("""
 <style>
@@ -60,12 +60,12 @@ section.main > div {
 .metric-value { font-size: 50px; font-weight: 800; line-height: 1.2; margin: 5px 0; }
 .metric-rate { font-size: 20px; font-weight: 600; }
 
-/* 表格缩放：放大1.5倍 */
+/* 表格缩放：放大1.3倍 */
 [data-testid="stDataFrameGlideDataEditor"] {
-    zoom: 1.5;
+    zoom: 1.3;
 }
 [data-testid="stDataEditor"] {
-    zoom: 1.5;
+    zoom: 1.3;
 }
 
 /* 普通表格样式 */
@@ -136,7 +136,7 @@ td {
     height: 50px !important;
 }
 
-/* 人员分析合并表格样式（保持原样） */
+/* 人员分析合并表格样式 */
 .merged-table td, .merged-table th {
     text-align: center !important;
     vertical-align: middle !important;
@@ -154,7 +154,7 @@ td {
     z-index: 10;
 }
 
-/* 返修分析专用合并表格（字体缩小，列宽优化） */
+/* 返修分析专用合并表格（动态列宽） */
 .merged-repair-table td, .merged-repair-table th {
     text-align: center !important;
     vertical-align: middle !important;
@@ -482,7 +482,7 @@ def trigger_image_popup(barcode, file_date=None):
 # =====================================================
 # 通用明细表（交互式，保留 st.dataframe，依靠 zoom 放大）
 # =====================================================
-def render_detail_table(df, key_prefix, height=500, enable_click=True):
+def render_detail_table(df, key_prefix, height=680, enable_click=True):
     if df.empty:
         st.info("无数据")
         return
@@ -561,9 +561,9 @@ def render_detail_table(df, key_prefix, height=500, enable_click=True):
         )
 
 # =====================================================
-# UF专用明细表
+# UF专用明细表（保留 st.dataframe，依靠 zoom 放大）
 # =====================================================
-def render_uf_detail_table(df, uf_check_df, key_prefix, height=620):
+def render_uf_detail_table(df, uf_check_df, key_prefix, height=680):
     if not uf_check_df.empty:
         df["条码"] = df["条码"].astype(str).str.strip()
         uf_check_df["条码"] = uf_check_df["条码"].astype(str).str.strip()
@@ -615,7 +615,7 @@ def render_uf_detail_table(df, uf_check_df, key_prefix, height=620):
     )
 
 # =====================================================
-# 人员分析合并表格（保持原样）
+# 人员分析合并表格（自定义 HTML，字体已较大）
 # =====================================================
 def render_merged_person_table(person_df, person_col, type_col="类型", cause_col="病象", count_col="数量", total_col="合计", max_height="600px", extra_col=None):
     if person_df.empty:
@@ -675,80 +675,116 @@ def render_merged_person_table(person_df, person_col, type_col="类型", cause_c
     st.markdown(html, unsafe_allow_html=True)
 
 # =====================================================
-# 返修分析合并表格（带排序和缺陷筛选）
+# 返修分析合并表格（支持多日期列动态扩展）
 # =====================================================
-def render_repair_table(repair_df, defect_filter="全部"):
-    if repair_df.empty:
+def render_repair_table(raw_repair_df, defect_filter="全部", selected_dates=None):
+    """
+    raw_repair_df: 原始返修数据DataFrame，必须包含列：
+        '胎胚编码', '成品名称', '成型机', '硫化机', '返修缺陷', '文件日期'
+    """
+    if raw_repair_df.empty:
         st.info("无返修数据")
         return
 
+    # 缺陷筛选
+    df = raw_repair_df.copy()
     if defect_filter != "全部":
-        repair_df = repair_df[repair_df["返修缺陷"] == defect_filter].copy()
-        if repair_df.empty:
+        df = df[df["返修缺陷"] == defect_filter]
+        if df.empty:
             st.info(f"无缺陷为“{defect_filter}”的数据")
             return
 
-    # 重新计算排序层级
-    repair_df["胎胚总计数"] = repair_df.groupby("胎胚编码")["数量"].transform("sum")
-    repair_df["成品计数"] = repair_df.groupby(["胎胚编码", "成品名称"])["数量"].transform("sum")
-    repair_df["成型机计数"] = repair_df.groupby(["胎胚编码", "成品名称", "成型机"])["数量"].transform("sum")
-    repair_df["硫化机计数"] = repair_df.groupby(["胎胚编码", "成品名称", "成型机", "硫化机"])["数量"].transform("sum")
-    repair_df.sort_values(
-        ["胎胚总计数", "成品计数", "成型机计数", "硫化机计数", "数量"],
-        ascending=[False, False, False, False, False],
-        inplace=True
-    )
-    repair_df.drop(columns=["胎胚总计数", "成品计数", "成型机计数", "硫化机计数"], inplace=True)
+    # 判断是否多日期模式
+    multi_date = selected_dates is not None and len(selected_dates) > 1
 
-    # 渲染合并表格（最终列宽：胎胚编码10% 成品名称46% 成型机9% 硫化机9% 返修缺陷16% 数量10%）
+    if multi_date:
+        # 多日期模式：按五个维度+日期分组计数，然后透视日期
+        pivot = df.groupby(["胎胚编码", "成品名称", "成型机", "硫化机", "返修缺陷", "文件日期"]).size().unstack(fill_value=0)
+        # 确保日期列存在并按选中日期排序
+        sorted_dates = sorted(selected_dates)
+        date_cols = [d for d in sorted_dates if d in pivot.columns]
+        if not date_cols:
+            date_cols = sorted(pivot.columns.tolist())
+        pivot = pivot[date_cols]
+        # 插入合计列
+        pivot.insert(0, "合计", pivot.sum(axis=1))
+        # 重命名日期列为 mm/dd
+        rename_map = {d: pd.to_datetime(d, format='%Y%m%d').strftime('%m/%d') for d in date_cols}
+        pivot.rename(columns=rename_map, inplace=True)
+        # 重置索引，扁平化
+        flat = pivot.reset_index()
+        # 按合计降序排序
+        flat = flat.sort_values("合计", ascending=False)
+        # 准备表头和数据列
+        data_columns = ["合计"] + list(rename_map.values())
+        headers = ["胎胚编码", "成品名称", "成型机", "硫化机", "返修缺陷"] + data_columns
+        # 列宽：前5列固定，日期列均分剩余宽度
+        fixed_widths = [10, 46, 9, 9, 16]  # 胎胚编码10%，成品名称46%，成型机9%，硫化机9%，返修缺陷16%
+        fixed_total = sum(fixed_widths)
+        remaining = 100 - fixed_total  # 10% 分给日期列
+        num_date_cols = len(data_columns)
+        date_width = remaining / num_date_cols if num_date_cols > 0 else remaining
+        col_widths = fixed_widths + [date_width] * num_date_cols
+        render_df = flat
+    else:
+        # 单日模式：按五个维度分组计数（忽略日期），显示“数量”列
+        grouped = df.groupby(["胎胚编码", "成品名称", "成型机", "硫化机", "返修缺陷"]).size().reset_index(name="数量")
+        # 按数量降序排序
+        grouped = grouped.sort_values("数量", ascending=False)
+        headers = ["胎胚编码", "成品名称", "成型机", "硫化机", "返修缺陷", "数量"]
+        col_widths = [10, 46, 9, 9, 16, 10]
+        render_df = grouped
+
+    # 构建HTML表格
     html = '<div class="scrollable-table" style="max-height: 600px;">'
     html += '<table class="merged-repair-table" style="width:100%">'
+    # 表头
     html += '<thead><tr>'
-    html += '<th style="width:10%">胎胚编码</th>'
-    html += '<th style="width:46%">成品名称</th>'
-    html += '<th style="width:9%">成型机</th>'
-    html += '<th style="width:9%">硫化机</th>'
-    html += '<th style="width:16%">返修缺陷</th>'
-    html += '<th style="width:10%">数量</th>'
-    html += '</tr></thead>'
-    html += '<tbody>'
+    for i, h in enumerate(headers):
+        html += f'<th style="width:{col_widths[i]}%">{h}</th>'
+    html += '</tr></thead><tbody>'
 
-    n = len(repair_df)
+    n = len(render_df)
     i = 0
     while i < n:
-        current_code = repair_df.iloc[i]["胎胚编码"]
+        current_code = render_df.iloc[i]["胎胚编码"]
         code_end = i
-        while code_end < n and repair_df.iloc[code_end]["胎胚编码"] == current_code:
+        while code_end < n and render_df.iloc[code_end]["胎胚编码"] == current_code:
             code_end += 1
         code_span = code_end - i
 
         j = i
         while j < code_end:
-            current_name = repair_df.iloc[j]["成品名称"]
+            current_name = render_df.iloc[j]["成品名称"]
             name_end = j
-            while name_end < code_end and repair_df.iloc[name_end]["成品名称"] == current_name:
+            while name_end < code_end and render_df.iloc[name_end]["成品名称"] == current_name:
                 name_end += 1
             name_span = name_end - j
 
             k = j
             while k < name_end:
-                current_machine = repair_df.iloc[k]["成型机"]
+                current_machine = render_df.iloc[k]["成型机"]
                 machine_end = k
-                while machine_end < name_end and repair_df.iloc[machine_end]["成型机"] == current_machine:
+                while machine_end < name_end and render_df.iloc[machine_end]["成型机"] == current_machine:
                     machine_end += 1
                 machine_span = machine_end - k
 
                 for m in range(k, machine_end):
                     row = "<tr>"
                     if m == i:
-                        row += f'<td rowspan="{code_span}" style="vertical-align: middle; width:10%">{current_code}</td>'
+                        row += f'<td rowspan="{code_span}" style="vertical-align: middle; width:{col_widths[0]}%">{current_code}</td>'
                     if m == j:
-                        row += f'<td rowspan="{name_span}" style="vertical-align: middle; width:46%">{current_name}</td>'
+                        row += f'<td rowspan="{name_span}" style="vertical-align: middle; width:{col_widths[1]}%">{current_name}</td>'
                     if m == k:
-                        row += f'<td rowspan="{machine_span}" style="vertical-align: middle; width:9%">{current_machine}</td>'
-                    row += f'<td style="width:9%">{repair_df.iloc[m]["硫化机"]}</td>'
-                    row += f'<td style="width:16%">{repair_df.iloc[m]["返修缺陷"]}</td>'
-                    row += f'<td style="width:10%">{repair_df.iloc[m]["数量"]}</td>'
+                        row += f'<td rowspan="{machine_span}" style="vertical-align: middle; width:{col_widths[2]}%">{current_machine}</td>'
+                    # 硫化机（不合并）
+                    row += f'<td style="width:{col_widths[3]}%">{render_df.iloc[m]["硫化机"]}</td>'
+                    row += f'<td style="width:{col_widths[4]}%">{render_df.iloc[m]["返修缺陷"]}</td>'
+                    # 输出数据列
+                    for col_idx in range(5, len(headers)):
+                        col_name = headers[col_idx]
+                        val = render_df.iloc[m][col_name]
+                        row += f'<td style="width:{col_widths[col_idx]}%">{int(val) if not pd.isna(val) else 0}</td>'
                     row += '</tr>'
                     html += row
                 k = machine_end
@@ -983,7 +1019,7 @@ def main():
             event_summary = st.dataframe(
                 summary,
                 width='stretch',
-                height=500,
+                height=680,
                 hide_index=True,
                 selection_mode="single-row",
                 on_select="rerun",
@@ -1004,7 +1040,7 @@ def main():
                     event_detail = st.dataframe(
                         detail[detail_cols],
                         width='stretch',
-                        height=500,
+                        height=680,
                         hide_index=True,
                         selection_mode="single-row",
                         on_select="rerun",
@@ -1023,13 +1059,13 @@ def main():
         st.divider()
         waste_type = st.radio("选择明细类型", ["全选", "废品", "外观次品"], horizontal=True)
         if waste_type == "全选":
-            render_detail_table(combined, "all_detail", height=500, enable_click=False)
+            render_detail_table(combined, "all_detail", height=680, enable_click=False)
         elif waste_type == "废品":
-            render_detail_table(waste_df, "waste_detail", height=500, enable_click=True)
+            render_detail_table(waste_df, "waste_detail", height=680, enable_click=True)
         else:
-            render_detail_table(app_df, "app_detail", height=500, enable_click=True)
+            render_detail_table(app_df, "app_detail", height=680, enable_click=True)
 
-        # -------- 机台统计（日期/病象切换，增加总计行，病象列降序）--------
+        # -------- 机台统计（日期/病象切换）--------
         st.divider()
         st.subheader("机台统计")
 
@@ -1089,28 +1125,22 @@ def main():
                     pivot.insert(0, "合计", pivot.sum(axis=1))
                     rename_dates = {d: pd.to_datetime(d, format='%Y%m%d').strftime('%m/%d') for d in date_columns}
                     pivot.rename(columns=rename_dates, inplace=True)
-                    total_row = pd.DataFrame(pivot.sum(axis=0)).T
-                    total_row[group_col] = "总计"
-                    pivot = pd.concat([total_row, pivot.reset_index()], ignore_index=True)
-                    pivot = pivot[[group_col] + ["合计"] + [c for c in pivot.columns if c not in [group_col, "合计"]]]
+                    pivot = pivot.reset_index()
                     pivot = pivot.sort_values("合计", ascending=False)
                     st.data_editor(
-                        pivot, disabled=True, use_container_width=True, height=550, hide_index=True, key="machine_date_editor"
+                        pivot, disabled=True, use_container_width=True, height=680, hide_index=True, key="machine_date_editor"
                     )
                 else:
                     st.info("请至少选择一个日期")
             else:
                 pivot = base_data.groupby([group_col, "病象"]).size().unstack(fill_value=0)
-                cause_totals = pivot.sum(axis=0).sort_values(ascending=False)
-                pivot = pivot[cause_totals.index]
                 pivot["合计"] = pivot.sum(axis=1)
-                total_row = pd.DataFrame(pivot.sum(axis=0)).T
-                total_row[group_col] = "总计"
-                pivot = pd.concat([total_row, pivot.reset_index()], ignore_index=True)
-                pivot = pivot[[group_col, "合计"] + list(cause_totals.index)]
                 pivot = pivot.sort_values("合计", ascending=False)
+                cols = ["合计"] + [c for c in pivot.columns if c != "合计"]
+                pivot = pivot[cols]
+                pivot = pivot.reset_index()
                 st.data_editor(
-                    pivot, disabled=True, use_container_width=True, height=550, hide_index=True, key="machine_cause_editor"
+                    pivot, disabled=True, use_container_width=True, height=680, hide_index=True, key="machine_cause_editor"
                 )
         else:
             st.info("无数据")
@@ -1121,31 +1151,7 @@ def main():
         uf_mac_all.columns = ["成型", "数量"]
         fig_uf = px.bar(uf_mac_all, x="成型", y="数量", text="数量", text_auto=True)
         st.plotly_chart(style_bar_chart(fig_uf, "UF次品成型机分布"), width='stretch', key="tab3_uf_mac")
-        render_uf_detail_table(uf_df, uf_check_data, "uf_detail", height=620)
-
-        # -------- UF成型机台×日期分布 --------
-        st.divider()
-        st.subheader("UF成型机台×日期分布")
-
-        uf_date_data = uf_df.copy()
-        if not uf_date_data.empty and selected_dates:
-            pivot = uf_date_data.groupby(["成型", "文件日期"]).size().unstack(fill_value=0)
-            sorted_dates = sorted(selected_dates)
-            date_columns = [d for d in sorted_dates if d in pivot.columns]
-            if not date_columns:
-                date_columns = sorted(pivot.columns.tolist())
-            pivot = pivot[date_columns]
-            pivot.insert(0, "合计", pivot.sum(axis=1))
-            rename_dates = {d: pd.to_datetime(d, format='%Y%m%d').strftime('%m/%d') for d in date_columns}
-            pivot.rename(columns=rename_dates, inplace=True)
-            total_row = pd.DataFrame(pivot.sum(axis=0)).T
-            total_row["成型"] = "总计"
-            pivot = pd.concat([total_row, pivot.reset_index()], ignore_index=True)
-            pivot = pivot[["成型", "合计"] + [c for c in pivot.columns if c not in ["成型", "合计"]]]
-            pivot = pivot.sort_values("合计", ascending=False)
-            st.dataframe(pivot, use_container_width=True, hide_index=True, height=600)
-        else:
-            st.info("无UF次品数据或未选择日期")
+        render_uf_detail_table(uf_df, uf_check_data, "uf_detail", height=680)
 
     with tab4:
         st.subheader("成型/硫化人员分析（不含返修）")
@@ -1153,20 +1159,14 @@ def main():
 
         with left_col:
             st.markdown("**成型人员分析**")
-            show_molding_machine = st.checkbox("显示成型机台", value=True)
             condition = ((df["车间"] == "成型") | (df["类型"] == "次品UF")) & (df["类型"] != "返修")
             molding_data = df[condition]
             if not molding_data.empty:
-                if show_molding_machine:
-                    person_detail = molding_data.groupby(["成型主手", "成型", "类型", "病象"]).size().reset_index(name="数量")
-                    extra = "成型"
-                else:
-                    person_detail = molding_data.groupby(["成型主手", "类型", "病象"]).size().reset_index(name="数量")
-                    extra = None
+                person_detail = molding_data.groupby(["成型主手", "成型", "类型", "病象"]).size().reset_index(name="数量")
                 person_detail["合计"] = person_detail.groupby("成型主手")["数量"].transform("sum")
                 person_detail = person_detail.sort_values(["合计", "成型主手", "类型", "病象"],
                                                           ascending=[False, True, True, True])
-                render_merged_person_table(person_detail, "成型主手", extra_col=extra)
+                render_merged_person_table(person_detail, "成型主手", extra_col="成型")
             else:
                 st.info("无成型及UF数据")
 
@@ -1192,14 +1192,14 @@ def main():
         st.subheader("返修分析")
 
         if not repair_df.empty:
-            # 查找列名
+            # 统一列名：查找并重命名胎胚编码、成品名称
             tire_code_col = None
             for col in repair_df.columns:
                 if "胎胚编码" in col:
                     tire_code_col = col
                     break
             if not tire_code_col:
-                tire_code_col = "条码"
+                tire_code_col = "条码"  # 回退
 
             product_name_col = None
             for col in repair_df.columns:
@@ -1209,22 +1209,25 @@ def main():
             if not product_name_col:
                 product_name_col = "规格"
 
-            # 分组计数
-            grouped = repair_df.groupby([tire_code_col, product_name_col, "成型", "硫化", "病象"]).size().reset_index(name="数量")
-            grouped.rename(columns={
+            # 创建标准化的DataFrame，方便函数内部使用
+            repair_std = repair_df.rename(columns={
                 tire_code_col: "胎胚编码",
                 product_name_col: "成品名称",
                 "成型": "成型机",
                 "硫化": "硫化机",
                 "病象": "返修缺陷"
-            }, inplace=True)
+            })
+            # 确保“文件日期”列存在
+            if "文件日期" not in repair_std.columns:
+                st.error("数据中缺少“文件日期”列")
+                return
 
-            # 按缺陷总计数降序排列选项
-            defect_counts = grouped.groupby("返修缺陷")["数量"].sum().sort_values(ascending=False)
+            # 缺陷筛选选项
+            defect_counts = repair_std.groupby("返修缺陷").size().sort_values(ascending=False)
             defect_options = ["全部"] + defect_counts.index.tolist()
             selected_defect = st.selectbox("选择返修缺陷", defect_options, key="repair_defect_select")
 
-            # 图片查看输入框
+            # 图片查看
             col_input, col_btn = st.columns([4, 1])
             with col_input:
                 repair_barcode = st.text_input("输入胎胚编码查看图片", key="repair_barcode_input")
@@ -1235,51 +1238,15 @@ def main():
                     else:
                         st.warning("请输入胎胚编码")
 
-            # 合并层级视图
-            render_repair_table(grouped, selected_defect)
-
-            # -------- 胎胚编码/规格 ×日期分布 --------
-            if len(selected_dates) > 1:
-                st.divider()
-                st.subheader("胎胚编码/规格 ×日期分布")
-
-                # 独立的返修缺陷筛选按钮（用于趋势表）
-                trend_defect = st.selectbox("趋势图返修缺陷筛选", defect_options, key="trend_defect_select")
-
-                trend_data = repair_df.copy()
-                if trend_defect != "全部":
-                    trend_data = trend_data[trend_data["病象"] == trend_defect]
-
-                if not trend_data.empty:
-                    # 按胎胚编码、规格和文件日期计数
-                    pivot = trend_data.groupby(["胎胚编码", "规格", "文件日期"]).size().unstack(fill_value=0)
-                    # 确保日期顺序
-                    sorted_dates = sorted(selected_dates)
-                    date_columns = [d for d in sorted_dates if d in pivot.columns]
-                    if not date_columns:
-                        date_columns = sorted(pivot.columns.tolist())
-                    pivot = pivot[date_columns]
-                    pivot.insert(0, "合计", pivot.sum(axis=1))
-                    # 重命名日期列为 mm/dd
-                    rename_dates = {d: pd.to_datetime(d, format='%Y%m%d').strftime('%m/%d') for d in date_columns}
-                    pivot.rename(columns=rename_dates, inplace=True)
-                    # 增加总计行
-                    total_row = pd.DataFrame(pivot.sum(axis=0)).T
-                    total_row["胎胚编码"] = "总计"
-                    total_row["规格"] = ""
-                    pivot = pd.concat([total_row, pivot.reset_index()], ignore_index=True)
-                    pivot = pivot[["胎胚编码", "规格", "合计"] + [c for c in pivot.columns if c not in ["胎胚编码", "规格", "合计"]]]
-                    pivot = pivot.sort_values("合计", ascending=False)
-                    st.dataframe(pivot, use_container_width=True, hide_index=True, height=500)
-                else:
-                    st.info("无返修数据")
+            # 渲染合并层级视图（支持多日期动态列）
+            render_repair_table(repair_std, selected_defect, selected_dates if len(selected_dates) > 1 else None)
         else:
             st.info("无返修数据")
 
 # =====================================================
 # 自动部署版本号（更新代码时递增可触发重新部署）
 # =====================================================
-APP_VERSION = "20260608_007"
+APP_VERSION = "20260608_011"
 
 if __name__ == "__main__":
     main()
