@@ -2,13 +2,28 @@
 import streamlit as st
 import pandas as pd
 
+# 原始列名列表（用于从数据源匹配）
 UF_COLUMNS = [
     "CWRFVOA_kgf", "CWRFVOA1H_kgf", "CWLFVOA_kgf",
     "CCWRFVOA_kgf", "CCWRFVOA1H_kgf", "CCWLFVOA_kgf",
     "CON_kgf", "Upper_g", "Lower_g"
 ]
 
+# 新表头映射（原始名 → 缩写）
+UF_HEADER_MAP = {
+    "CWRFVOA_kgf": "RVF",
+    "CWRFVOA1H_kgf": "R1H",
+    "CWLFVOA_kgf": "LFV",
+    "CCWRFVOA_kgf": "RFV(ccw)",
+    "CCWRFVOA1H_kgf": "R1H(ccw)",
+    "CCWLFVOA_kgf": "LFV(ccw)",
+    "CON_kgf": "CON",
+    "Upper_g": "UPP",
+    "Lower_g": "LOW"
+}
+
 def render_uf_detail_table(df, uf_check_df, key_prefix, height=680):
+    """渲染UF次品明细表（含检查指标），表头已缩写"""
     if not uf_check_df.empty:
         df["条码"] = df["条码"].astype(str).str.strip()
         uf_check_df["条码"] = uf_check_df["条码"].astype(str).str.strip()
@@ -22,8 +37,10 @@ def render_uf_detail_table(df, uf_check_df, key_prefix, height=680):
         st.info("无UF次品数据")
         return
 
+    # 排序
     merged = merged.sort_values(["成型", "规格", "成型主手"])
 
+    # 筛选控件
     col1, col2, col3 = st.columns(3)
     with col1:
         machines = ["全部"] + sorted(merged["成型"].dropna().astype(str).unique().tolist())
@@ -47,13 +64,17 @@ def render_uf_detail_table(df, uf_check_df, key_prefix, height=680):
         st.warning("无符合条件的数据")
         return
 
+    # 基础列
     base_cols = ["条码", "成型", "硫化", "成型时间", "成型主手", "规格", "花纹"]
     base_cols = [c for c in base_cols if c in filtered.columns]
     show_cols = base_cols + UF_COLUMNS
 
+    # 重命名指标列为缩写
+    filtered_display = filtered[show_cols].rename(columns=UF_HEADER_MAP)
+
     st.markdown("<div class='table-header'>📋 UF 明细数据（含检查指标）</div>", unsafe_allow_html=True)
     st.dataframe(
-        filtered[show_cols],
+        filtered_display,
         width='stretch',
         height=height,
         hide_index=True
