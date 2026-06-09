@@ -140,6 +140,14 @@ td {
     overflow-y: auto;
     border: 1px solid #ccc;
 }
+/* st.data_editor 单元格自动换行 + 字体放大 */
+[data-testid="stDataEditor"] td {
+    white-space: normal !important;
+    word-break: break-all;
+    font-size: 18px !important;   /* 可根据需要调整 */
+    line-height: 1.4 !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 

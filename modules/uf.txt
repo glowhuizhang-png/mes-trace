@@ -75,7 +75,17 @@ def render_uf_detail_table(df, uf_check_df, key_prefix, height=680):
     st.markdown("<div class='table-header'>📋 UF 明细数据（含检查指标）</div>", unsafe_allow_html=True)
     st.dataframe(
         filtered_display,
-        width='stretch',
+        disabled=True, 
+        use_container_width=True,
         height=height,
         hide_index=True
+        row_height=36
     )
+    st.data_editor(
+    filtered_display,
+    disabled=True,            # 禁止编辑
+    use_container_width=True,
+    height=height,
+    hide_index=True,
+    row_height=36             # 增加行高
+)
