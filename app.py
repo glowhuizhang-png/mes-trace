@@ -112,7 +112,8 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
-    # ========== 右侧控件（日期、刷新、版本） ==========
+    # ========== 右侧控件（日期、刷新、版本） - 使用独立 ID 定位 ==========
+    st.markdown('<div id="toolbar-fixed">', unsafe_allow_html=True)
     toolbar = st.container()
     with toolbar:
         c1, c2, c3 = st.columns([4, 1, 1], gap="small")
@@ -128,11 +129,12 @@ def main():
             refresh_clicked = st.button("🔄 刷新", use_container_width=True)
         with c3:
             st.markdown(f"<div style='color:white; text-align:center; padding-top:8px;'>v{APP_VERSION}</div>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # 右侧工具栏固定定位（稳定选择器）
+    # 右侧工具栏固定定位（使用 ID 选择器，避免 DOM 结构变化导致失效）
     st.markdown("""
     <style>
-    div.fixed-header + div {
+    #toolbar-fixed {
         position: fixed;
         top: 18px;
         right: 24px;
@@ -140,10 +142,14 @@ def main():
         width: auto;
         background: transparent !important;
     }
-    div.fixed-header + div > div {
+    #toolbar-fixed > div {
         display: flex;
         align-items: center;
         gap: 12px;
+    }
+    /* 确保内部列容器不破坏布局 */
+    #toolbar-fixed .stColumn {
+        flex: 1;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -176,7 +182,6 @@ def main():
         selected_date = selected_dates[0]
         if selected_date in all_dates:
             idx = all_dates.index(selected_date)
-            # all_dates 是倒序的，后一个索引是更早的日期
             if idx < len(all_dates) - 1:
                 prev_day = all_dates[idx + 1]
                 if prev_day not in load_dates:
@@ -230,7 +235,6 @@ def main():
 
     # ---------- 单日 / 多日的 KPI 计算 ----------
     if is_multi_day:
-        # 多日：汇总用户选中的日期
         total_production = sum(daily_prod_dict.get(d, 0) for d in selected_dates)
         waste_cnt = len(waste_df)
         app_cnt   = len(app_df)
@@ -241,7 +245,6 @@ def main():
         app_rate   = app_cnt / total_production if total_production > 0 else 0
         uf_rate    = uf_cnt / total_production if total_production > 0 else 0
 
-        # 多日不显示变化量
         prod_change = None
         prod_abs_change = None
         waste_rate_change = None
@@ -255,7 +258,6 @@ def main():
         uf_cnt_abs_change = None
         qual_rate_change = None
     else:
-        # 单日：使用当天（selected_date）的统计值，产量从 daily_prod_dict 取
         selected_date = selected_dates[0]
         total_production = daily_prod_dict.get(selected_date, 0)
         waste_cnt = len(waste_df)
@@ -267,7 +269,6 @@ def main():
         app_rate   = app_cnt / total_production if total_production > 0 else 0
         uf_rate    = uf_cnt / total_production if total_production > 0 else 0
 
-        # 变化量基于 latest（今日）与 prev（昨日）字典
         prod_change = calc_change(latest, prev, "production")
         waste_rate_change = calc_change(latest, prev, "waste_rate")
         app_rate_change   = calc_change(latest, prev, "app_rate")
