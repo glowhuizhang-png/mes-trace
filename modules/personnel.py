@@ -38,15 +38,15 @@ def render_merged_person_table(person_df, person_col, type_col="类型", cause_c
             for k in range(j, type_end):
                 row = "<tr>"
                 if k == i:
-                    row += f'<td rowspan="{person_span}" style="vertical-align: middle;">{current_person}</td>'
+                    row += f'<td rowspan="{person_span}" style="vertical-align: middle; background-color: white; color: #333;">{current_person}</td>'
                 if extra_col and extra_col in person_df.columns:
-                    row += f'<td>{person_df.iloc[k][extra_col]}</td>'
+                    row += f'<td style="background-color: white; color: #333;">{person_df.iloc[k][extra_col]}</td>'
                 if k == j:
-                    row += f'<td rowspan="{type_span}" style="vertical-align: middle;">{current_type}</td>'
-                row += f'<td>{person_df.iloc[k][cause_col]}</td>'
-                row += f'<td>{person_df.iloc[k][count_col]}</td>'
+                    row += f'<td rowspan="{type_span}" style="vertical-align: middle; background-color: white; color: #333;">{current_type}</td>'
+                row += f'<td style="background-color: white; color: #333;">{person_df.iloc[k][cause_col]}</td>'
+                row += f'<td style="background-color: white; color: #333;">{person_df.iloc[k][count_col]}</td>'
                 if k == i:
-                    row += f'<td rowspan="{person_span}" style="vertical-align: middle;">{person_df.iloc[k][total_col]}</td>'
+                    row += f'<td rowspan="{person_span}" style="vertical-align: middle; background-color: white; color: #333;">{person_df.iloc[k][total_col]}</td>'
                 row += '</tr>'
                 html += row
             j = type_end

@@ -1,0 +1,287 @@
+import streamlit as st
+
+def apply_dark_theme():
+    st.markdown("""
+<style>
+/* 隐藏 Streamlit 自带顶栏 */
+header[data-testid="stHeader"] {
+    display: none !important;
+}
+
+/* 页面外围深蓝背景 */
+.stApp {
+    background: linear-gradient(135deg, #071938, #0d2c63);
+}
+
+/* 主体内容区：白色大面板，带阴影 */
+.main .block-container {
+    max-width: 99% !important;
+    margin-top: 230px !important;          /* 标题+Tabs 高度 */
+    padding: 15px !important;              /* 统一内边距 */
+    background: white !important;
+    border-radius: 28px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.15);
+}
+
+/* =======================
+固定标题栏（纯HTML）
+======================= */
+.fixed-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100px;
+    z-index: 100002;
+    background: linear-gradient(90deg, #051630, #0a2d6e, #2563eb);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 24px;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.header-left img {
+    width: 48px;
+    height: 48px;
+}
+
+.header-text .main-title {
+    font-size: 28px;
+    font-weight: 900;
+    color: white;
+    line-height: 1.2;
+    letter-spacing: 2px;
+}
+
+.header-text .sub-title {
+    font-size: 14px;
+    color: #dbeafe;
+    margin-top: 2px;
+}
+
+.header-right {
+    color: white;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+/* ==========================
+固定 Tabs 导航
+========================== */
+.stTabs [data-baseweb="tab-list"] {
+    position: fixed !important;
+    top: 100px !important;
+    left: 15px !important;
+    right: 15px !important;
+    z-index: 100001 !important;
+    background: #071938 !important;
+    border-radius: 18px !important;
+    padding: 8px 12px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,.3) !important;
+}
+
+.stTabs [data-baseweb="tab"] {
+    height: 52px !important;
+    border-radius: 12px !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: white !important;
+    background: #10284f !important;
+    margin-right: 8px !important;
+    border: none !important;
+    transition: all 0.2s ease !important;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    background: #1e3a8a !important;
+    transform: translateY(-2px);
+}
+
+.stTabs [aria-selected="true"] {
+    background: #2563eb !important;
+    color: white !important;
+    box-shadow: 0 0 12px rgba(37,99,235,.5) !important;
+}
+
+/* =======================
+全局标题颜色加深（确保图表标题清晰）
+======================= */
+h1, h2, h3, h4, h5 {
+    color: #0f172a !important;
+}
+
+/* =======================
+KPI 卡片（优化字体大小）
+======================= */
+.kpi-row {
+    display: flex;
+    gap: 18px;
+    margin-bottom: 10px;
+}
+.kpi-card {
+    flex: 1;
+    background: white;
+    border-radius: 22px;
+    padding: 18px;
+    min-height: 150px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.08);
+}
+.kpi-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 12px;
+}
+.kpi-bottom-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 18px;
+    margin-top: 8px;
+}
+.kpi-label {
+    font-size: 26px;            /* 增大标题字体 */
+    font-weight: 700;
+    color: #475569;
+}
+.kpi-main-value {
+    font-size: 72px;            /* 主数字大小协调 */
+    font-weight: 900;
+    line-height: 1;
+    color: #071938;
+}
+.kpi-sub-label {
+    font-weight: 600;
+    color: #64748b;
+}
+.kpi-detail {
+    font-size: 18px;            /* 小字缩小一点 */
+    font-weight: 600;
+    margin-top: 18px;
+    color: #64748b;
+}
+/* 个别卡片个性化颜色 */
+.production-card .kpi-top-row {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.production-card .kpi-main-value {
+    font-size: 40px;
+    font-weight: 900;
+}
+.waste-card .kpi-main-value {
+    font-size: 40px;
+    color: #3B82F6;
+    font-weight: 900;
+}
+.app-card .kpi-main-value {
+    font-size: 40px;
+    color: #F59E0B;
+    font-weight: 900;
+}
+.uf-card .kpi-main-value {
+    font-size: 40px;
+    color: #14B8A6;
+    font-weight: 900;
+}
+.qual-card .kpi-top-row {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.qual-card .kpi-main-value {
+    font-size: 40px;
+    color: #10B981;
+    font-weight: 900;
+}
+
+/* =======================
+图表区域白色卡片化
+======================= */
+/* 通用图表卡片容器（配合 dashboard.py 中的 div 使用） */
+.chart-card {
+    background: white;
+    border-radius: 20px;
+    padding: 20px;
+    margin-top: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+
+.chart-card{
+
+    background:#ffffff;
+
+    border-radius:24px;
+
+    padding:20px;
+
+    box-shadow:0 8px 24px rgba(0,0,0,.08);
+
+    margin-bottom:20px;
+}
+
+/* 直接针对 stPlotlyChart 容器也加上白色背景和阴影 */
+.stPlotlyChart {
+    background: white !important;
+    border-radius: 20px;
+    padding: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+
+.js-plotly-plot,
+.plot-container,
+.plotly,
+.stPlotlyChart > div {
+    background: white !important;
+}
+
+/* 表格背景保持白色 */
+.stDataFrame,
+.stTable {
+    background: white;
+    border-radius: 18px;
+    overflow: hidden;
+}
+.stDataFrame table,
+.stTable table {
+    background: white;
+}
+.stDataFrame th,
+.stTable th {
+    background: #ffffff;
+    color: #0f172a;
+}
+.stDataFrame td,
+.stTable td {
+    background: white;
+    color: #334155;
+}
+/* 👇 新加在这里 👇 */
+div[data-testid="column"]:has(.column-card-marker) {
+    background: white;
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.08);
+}
+
+/* 侧边栏弹出层层级 */
+div[data-baseweb="popover"] {
+    z-index: 99999 !important;
+}
+
+/* 隐藏侧边栏 */
+section[data-testid="stSidebar"] {
+    display: none !important;
+}
+</style>
+""", unsafe_allow_html=True)
