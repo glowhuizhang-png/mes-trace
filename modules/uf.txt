@@ -1,15 +1,14 @@
 # modules/uf.py
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 
-# 原始列名列表（用于从数据源匹配）
 UF_COLUMNS = [
     "CWRFVOA_kgf", "CWRFVOA1H_kgf", "CWLFVOA_kgf",
     "CCWRFVOA_kgf", "CCWRFVOA1H_kgf", "CCWLFVOA_kgf",
     "CON_kgf", "Upper_g", "Lower_g"
 ]
 
-# 新表头映射（原始名 → 缩写）
 UF_HEADER_MAP = {
     "CWRFVOA_kgf": "RVF",
     "CWRFVOA1H_kgf": "R1H",
@@ -23,8 +22,9 @@ UF_HEADER_MAP = {
 }
 
 def render_uf_detail_table(df, uf_check_df, key_prefix, height=680):
-    """渲染UF次品明细表（含检查指标），表头已缩写"""
-    if not uf_check_df.empty:
+    """完全自包含：绘制柱状图 + 明细表，点击柱状图自动筛选"""
+    # 合并UF检查数据
+    if uf_check_df is not None and not uf_check_df.empty:
         df["条码"] = df["条码"].astype(str).str.strip()
         uf_check_df["条码"] = uf_check_df["条码"].astype(str).str.strip()
         merged = df.merge(uf_check_df, on="条码", how="left")
@@ -37,14 +37,45 @@ def render_uf_detail_table(df, uf_check_df, key_prefix, height=680):
         st.info("无UF次品数据")
         return
 
-    # 排序
-    merged = merged.sort_values(["成型", "规格", "成型主手"])
+    # 柱状图数据
+    machine_counts = merged["成型机台"].value_counts().reset_index()
+    machine_counts.columns = ["成型机", "数量"]
+
+    st.subheader("UF次品成型机分布")
+    fig = px.bar(machine_counts, x="成型机", y="数量", text="数量", text_auto=True)
+    fig.update_traces(marker_color='steelblue', marker_line_color='white', marker_line_width=1)
+    fig.update_layout(clickmode='event+select')
+
+    plotly_event = st.plotly_chart(
+        fig,
+        use_container_width=True,
+        key=f"uf_bar_{key_prefix}",
+        on_select="rerun",
+        selection_mode="points"
+    )
+
+    # 获取点击的成型机
+    selected_machine = None
+    if plotly_event and plotly_event.selection:
+        points = plotly_event.selection.points
+        if points and len(points) > 0:
+            if isinstance(points[0], dict):
+                selected_machine = points[0].get('x')
+            else:
+                selected_machine = getattr(points[0], 'x', None)
+            if selected_machine:
+                st.session_state[f"selected_uf_machine_{key_prefix}"] = selected_machine
+    else:
+        selected_machine = st.session_state.get(f"selected_uf_machine_{key_prefix}", None)
 
     # 筛选控件
     col1, col2, col3 = st.columns(3)
     with col1:
-        machines = ["全部"] + sorted(merged["成型"].dropna().astype(str).unique().tolist())
-        selected_machine = st.selectbox("⚙️ 成型", machines, key=f"uf_machine_{key_prefix}")
+        machines = ["全部"] + sorted(merged["成型机台"].dropna().astype(str).unique().tolist())
+        default_idx = 0
+        if selected_machine and selected_machine in machines:
+            default_idx = machines.index(selected_machine)
+        selected_machine_filter = st.selectbox("⚙️ 成型机", machines, index=default_idx, key=f"uf_machine_select_{key_prefix}")
     with col2:
         specs = ["全部"] + sorted(merged["规格"].dropna().astype(str).unique().tolist())
         selected_spec = st.selectbox("📏 规格", specs, key=f"uf_spec_{key_prefix}")
@@ -53,8 +84,8 @@ def render_uf_detail_table(df, uf_check_df, key_prefix, height=680):
         selected_pattern = st.selectbox("🎨 花纹", patterns, key=f"uf_pattern_{key_prefix}")
 
     filtered = merged.copy()
-    if selected_machine != "全部":
-        filtered = filtered[filtered["成型"] == selected_machine]
+    if selected_machine_filter != "全部":
+        filtered = filtered[filtered["成型机台"] == selected_machine_filter]
     if selected_spec != "全部":
         filtered = filtered[filtered["规格"] == selected_spec]
     if selected_pattern != "全部":
@@ -64,28 +95,9 @@ def render_uf_detail_table(df, uf_check_df, key_prefix, height=680):
         st.warning("无符合条件的数据")
         return
 
-    # 基础列
-    base_cols = ["条码", "成型", "硫化", "成型时间", "成型主手", "规格", "花纹"]
+    base_cols = ["条码", "成型机台", "硫化机台", "成型时间", "成型主手", "规格", "花纹"]
     base_cols = [c for c in base_cols if c in filtered.columns]
     show_cols = base_cols + UF_COLUMNS
-
-    # 重命名指标列为缩写
     filtered_display = filtered[show_cols].rename(columns=UF_HEADER_MAP)
-
     st.markdown("<div class='table-header'>📋 UF 明细数据（含检查指标）</div>", unsafe_allow_html=True)
-    st.dataframe(
-        filtered_display,
-        disabled=True, 
-        use_container_width=True,
-        height=height,
-        hide_index=True
-        row_height=36
-    )
-    st.data_editor(
-    filtered_display,
-    disabled=True,            # 禁止编辑
-    use_container_width=True,
-    height=height,
-    hide_index=True,
-    row_height=36             # 增加行高
-)
+    st.dataframe(filtered_display, width='stretch', height=height, hide_index=True)
