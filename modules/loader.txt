@@ -7,7 +7,6 @@ from modules.utils import clean_str, find_col, full_to_half, extract_chinese, sh
 
 # ---------- 产量提取辅助函数 ----------
 def extract_single_daily_production(file_path, date_str):
-    """从production.xls中提取指定日期的产量总和"""
     try:
         df_prod = pd.read_excel(file_path, header=None, dtype=str)
         header_row = df_prod.iloc[0].fillna("").astype(str).str.strip()
@@ -29,7 +28,7 @@ def extract_single_daily_production(file_path, date_str):
                 col_data = df_prod.iloc[1:, i]
                 return pd.to_numeric(col_data, errors='coerce').sum()
         return 0
-    except Exception:
+    except:
         return 0
 
 # ---------- 主数据加载函数 ----------
@@ -49,7 +48,6 @@ def load_rule(rule_file):
 
 @st.cache_data(ttl=300)
 def load_raw(selected_dates, raw_dir):
-    """加载原始数据，合并多日期文件"""
     all_df = []
     for d in selected_dates:
         fp1 = os.path.join(raw_dir, f"{d}.xls")
@@ -67,7 +65,6 @@ def load_raw(selected_dates, raw_dir):
 
 @st.cache_data(ttl=300)
 def load_production(selected_dates, production_file):
-    """加载总产量"""
     if not os.path.exists(production_file):
         return None
     total = 0
@@ -77,7 +74,6 @@ def load_production(selected_dates, production_file):
 
 @st.cache_data(ttl=300)
 def load_daily_production_dict(selected_dates, production_file):
-    """加载每日产量字典"""
     if not os.path.exists(production_file):
         return {}
     prod_dict = {}
@@ -87,7 +83,6 @@ def load_daily_production_dict(selected_dates, production_file):
 
 @st.cache_data(ttl=300)
 def load_uf_check_data(uf_data_dir):
-    """加载UF检查数据"""
     UF_COLUMNS = [
         "CWRFVOA_kgf", "CWRFVOA1H_kgf", "CWLFVOA_kgf",
         "CCWRFVOA_kgf", "CCWRFVOA1H_kgf", "CCWLFVOA_kgf",
@@ -121,12 +116,8 @@ def load_uf_check_data(uf_data_dir):
         return pd.concat(all_uf, ignore_index=True)
     return pd.DataFrame(columns=["条码"] + UF_COLUMNS)
 
-# ---------- 派生字段（核心数据处理）----------
+# ---------- 派生字段 ----------
 def derive_columns(df, code_to_cause, code_to_shop, cause_to_shop):
-    """
-    为原始数据添加派生字段：类型、病象、车间、成型、硫化等
-    返回处理后的DataFrame
-    """
     df = df.copy()
     col_detect = find_col(df, ["检测分类", "分类"])
     col_reason = find_col(df, ["溯源原因简码", "原因简码", "简码", "原因代码"])
@@ -164,9 +155,9 @@ def derive_columns(df, code_to_cause, code_to_shop, cause_to_shop):
         )
 
     rename_map = {
-        "模具位置": "位置", "上下模": "位置", "硫化机台": "硫化",
-        "成型主手": "成型主手", "花纹": "花纹", "规格": "规格",
-        "成型时间": "成型时间", "硫化人": "硫化主手", "条码": "条码"
+        "模具位置":"位置", "上下模":"位置", "硫化机台":"硫化",
+        "成型主手":"成型主手", "花纹":"花纹", "规格":"规格",
+        "成型时间":"成型时间", "硫化人":"硫化主手", "条码":"条码"
     }
     for old, new in rename_map.items():
         if old in df.columns:
