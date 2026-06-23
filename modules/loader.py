@@ -5,7 +5,7 @@ import re
 from datetime import timedelta
 from modules.utils import clean_str, find_col, full_to_half, extract_chinese, short_name
 
-# ---------- 产量提取辅助函数 ----------
+# ---------- 产量提取辅助 ----------
 def extract_single_daily_production(file_path, date_str):
     try:
         df_prod = pd.read_excel(file_path, header=None, dtype=str)
@@ -13,12 +13,9 @@ def extract_single_daily_production(file_path, date_str):
         header_row = [re.sub(r"[\s　\n\r\t]+", "", x) for x in header_row]
         dt = pd.to_datetime(date_str, format='%Y%m%d')
         patterns = [
-            f"{dt.month:02d}-{dt.day:02d}",
-            f"{dt.month}-{dt.day}",
-            f"{dt.month:02d}.{dt.day:02d}",
-            f"{dt.month}.{dt.day}",
-            f"{dt.month:02d}/{dt.day:02d}",
-            f"{dt.month}/{dt.day}",
+            f"{dt.month:02d}-{dt.day:02d}", f"{dt.month}-{dt.day}",
+            f"{dt.month:02d}.{dt.day:02d}", f"{dt.month}.{dt.day}",
+            f"{dt.month:02d}/{dt.day:02d}", f"{dt.month}/{dt.day}",
             f"{dt.month}月{dt.day}日",
             f"{dt.year}-{dt.month:02d}-{dt.day:02d}",
             f"{dt.year}/{dt.month:02d}/{dt.day:02d}",
@@ -31,7 +28,7 @@ def extract_single_daily_production(file_path, date_str):
     except:
         return 0
 
-# ---------- 主数据加载函数 ----------
+# ---------- 主加载 ----------
 @st.cache_data(ttl=300)
 def load_rule(rule_file):
     if not os.path.exists(rule_file):
@@ -107,6 +104,7 @@ def load_uf_check_data(uf_data_dir):
                 else:
                     df_uf.rename(columns={barcode_col: "条码"}, inplace=True)
                 df_uf["条码"] = df_uf["条码"].apply(full_to_half)
+                df_uf["条码"] = df_uf["条码"].astype(str).str.replace(r'\.0$', '', regex=True)
                 available = [c for c in UF_COLUMNS if c in df_uf.columns]
                 df_uf = df_uf[["条码"] + available].copy()
                 all_uf.append(df_uf)
@@ -165,6 +163,7 @@ def derive_columns(df, code_to_cause, code_to_shop, cause_to_shop):
 
     if "条码" in df.columns:
         df["条码"] = df["条码"].apply(full_to_half)
+        df["条码"] = df["条码"].astype(str).str.replace(r'\.0$', '', regex=True)
 
     if "位置" in df.columns:
         df["位置"] = df["位置"].apply(extract_chinese)
@@ -175,3 +174,15 @@ def derive_columns(df, code_to_cause, code_to_shop, cause_to_shop):
         df["硫化"] = df["硫化"].apply(short_name)
 
     return df
+
+# ---------- 新增：获取所有日期 ----------
+def get_all_dates(raw_dir):
+    files = []
+    if not os.path.exists(raw_dir):
+        return files
+    for f in os.listdir(raw_dir):
+        if f.endswith(".xls") or f.endswith(".xlsx"):
+            name = f.split(".")[0]
+            if len(name) == 8 and name.isdigit():
+                files.append(name)
+    return sorted(files, reverse=True)
