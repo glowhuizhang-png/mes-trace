@@ -120,7 +120,7 @@ td {
     border-bottom: 4px solid #1976D2 !important;
 }
 .stTabs [role="tabpanel"] {
-    padding-top: 30px !important;
+    padding-top: 80px !important;
 }
 .stTabs .stTabs [data-baseweb="tab-list"] {
     position: static !important;
