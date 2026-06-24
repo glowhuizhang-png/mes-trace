@@ -250,16 +250,11 @@ def render_waste_appearance_analysis(combined_df, photo_index, waste_df, app_df,
 
         if clicked_value == "其他":
             drill_df = combined[~combined[dim_col].isin(top12_values)]
-            st.caption(f"当前选择：其他（除前12项外的所有记录）")
         else:
             drill_df = combined[combined[dim_col] == clicked_value]
-            st.caption(f"当前选择：{clicked_value}")
 
         if not drill_df.empty:
             total_count = len(drill_df)
-
-            # ----- 自动结论 -----
-            st.markdown("### 🎯 自动结论")
 
             cause_counts = drill_df["病象"].value_counts()
             spec_counts = drill_df["规格"].astype(str).replace("nan", "").replace("None", "")
@@ -306,7 +301,7 @@ def render_waste_appearance_analysis(combined_df, photo_index, waste_df, app_df,
                 st.success("未发现明显集中趋势")
 
             # ----- TOP5 四宫格（纯黑、窄柱、无纵轴标题） -----
-            st.markdown("### 📊 TOP5 贡献分析")
+            # 注意：此处已删除 "### 📊 TOP5 贡献分析" 标题
 
             def safe_top5(series, name):
                 ser = series.astype(str).replace("nan", "").replace("None", "")
