@@ -496,45 +496,14 @@ def main():
         left_col, right_col = st.columns(2)
 
         with left_col:
-            st.markdown("**成型人员分析**")
-            show_molding_machine = st.checkbox("显示成型机台", value=True)
-            condition = ((df["车间"] == "成型") | (df["类型"] == "次品UF")) & (df["类型"] != "返修")
-            molding_data = df[condition]
-            if not molding_data.empty:
-                if show_molding_machine:
-                    person_detail = molding_data.groupby(["成型主手", "成型", "类型", "病象"]).size().reset_index(name="数量")
-                    extra = "成型"
-                else:
-                    person_detail = molding_data.groupby(["成型主手", "类型", "病象"]).size().reset_index(name="数量")
-                    extra = None
-                person_detail["合计"] = person_detail.groupby("成型主手")["数量"].transform("sum")
-                person_detail = person_detail.sort_values(["合计", "成型主手", "类型", "病象"],
-                                                          ascending=[False, True, True, True])
-                html = render_merged_person_table(person_detail, "成型主手", extra_col=extra)
-                if html:
-                    st.markdown(html, unsafe_allow_html=True)
-            else:
-                st.info("无成型及UF数据")
+            # 直接调用封装好的成型分析函数
+            from modules.personnel import render_molding_analysis
+            render_molding_analysis(df)
 
         with right_col:
-            st.markdown("**硫化人员分析**")
-            show_vul_machine = st.checkbox("显示硫化机台", value=True)
-            vul_data = df[(df["车间"] == "硫化") & (df["类型"].isin(["废品", "次品外观"]))]
-            if not vul_data.empty:
-                if show_vul_machine:
-                    person_detail = vul_data.groupby(["硫化主手", "硫化", "类型", "病象"]).size().reset_index(name="数量")
-                    extra = "硫化"
-                else:
-                    person_detail = vul_data.groupby(["硫化主手", "类型", "病象"]).size().reset_index(name="数量")
-                    extra = None
-                person_detail["合计"] = person_detail.groupby("硫化主手")["数量"].transform("sum")
-                person_detail = person_detail.sort_values(["合计", "硫化主手", "类型", "病象"],
-                                                          ascending=[False, True, True, True])
-                html = render_merged_person_table(person_detail, "硫化主手", extra_col=extra)
-                if html:
-                    st.markdown(html, unsafe_allow_html=True)
-            else:
-                st.info("无硫化数据（废品/次品外观）")
+            # 直接调用封装好的硫化分析函数
+            from modules.personnel import render_vulcanization_analysis
+            render_vulcanization_analysis(df)
 
     # ==================== 返修分析 ====================
     with tab5:
