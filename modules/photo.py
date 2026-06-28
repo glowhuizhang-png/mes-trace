@@ -29,9 +29,16 @@ def show_big_image(img_path):
     except Exception as e:
         st.warning(f"图片加载失败：{e}")
 
+import time
+
 def trigger_image_popup(barcode, photo_index):
+    # 防抖：如果 2 秒内已经弹过，则忽略
+    now = time.time()
+    if "last_popup_time" in st.session_state and (now - st.session_state.last_popup_time) < 2:
+        return
     fp = find_photo(barcode, photo_index)
     if fp:
+        st.session_state.last_popup_time = now
         show_big_image(fp)
     else:
         st.warning(f"未找到图片：{barcode}")
