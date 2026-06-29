@@ -28,6 +28,82 @@ from modules.detail import render_detail_table
 from modules.detail import render_detail_table, render_summary_table, render_waste_appearance_analysis
 from modules.statistics import render_machine_statistics
 
+# ========== 登录验证函数 ==========
+def check_password():
+    """返回 True 如果用户已登录，否则显示登录表单并返回 False"""
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+
+    if st.session_state.authenticated:
+        return True
+
+    # 登录表单样式
+    st.markdown("""
+    <style>
+    .login-container {
+        max-width: 420px;
+        margin: 80px auto 0 auto;
+        padding: 40px 32px 32px 32px;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+        border: 1px solid #e8ecf0;
+    }
+    .login-title {
+        text-align: center;
+        font-size: 28px;
+        font-weight: 700;
+        color: #0a2d6e;
+        margin-bottom: 4px;
+    }
+    .login-sub {
+        text-align: center;
+        color: #64748b;
+        font-size: 14px;
+        margin-bottom: 28px;
+    }
+    .login-icon {
+        text-align: center;
+        font-size: 56px;
+        margin-bottom: 8px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("""
+        <div class="login-container">
+            <div class="login-icon">🛞</div>
+            <div class="login-title">MES质量追溯系统</div>
+            <div class="login-sub">请输入账号和密码登录</div>
+        """, unsafe_allow_html=True)
+
+        with st.form("login_form", clear_on_submit=False):
+            username = st.text_input("👤 用户名", placeholder="请输入用户名", key="login_username")
+            password = st.text_input("🔒 密码", type="password", placeholder="请输入密码", key="login_password")
+            submitted = st.form_submit_button("🔐 登 录", use_container_width=True)
+
+            if submitted:
+                # 验证逻辑（从 config 读取或硬编码）
+                try:
+                    from config import LOGIN_USERNAME, LOGIN_PASSWORD
+                    valid = (username == LOGIN_USERNAME and password == LOGIN_PASSWORD)
+                except ImportError:
+                    # 如果 config 中没有定义，使用硬编码
+                    valid = (username == "QA" and password == "123123")
+
+                if valid:
+                    st.session_state.authenticated = True
+                    st.session_state.username = username
+                    st.rerun()
+                else:
+                    st.error("❌ 用户名或密码错误，请重试")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    return False
+
 # ========== 页面配置 ==========
 st.set_page_config(
     page_title="MES质量追溯系统",
@@ -74,7 +150,7 @@ section.main > div { padding-top: 0rem !important; }
     white-space: normal !important;
     word-break: break-word;
     font-size: 20px !important;
-    line-height: 1.4 !important;
+    line-height: 1.2 !important;
 }
 table {
     text-align: center !important;
@@ -84,14 +160,14 @@ th {
     background-color: #f0f2f6 !important;
     font-weight: 700;
     padding: 14px 6px !important;
-    font-size: 24px;
+    font-size: 18px;
 }
 td {
-    padding: 14px 6px !important;
-    font-size: 36px !important;
-    font-weight: 700;
+    padding: 8px 6px !important;
+    font-size: 18px !important;
+    font-weight: 600;
     border-bottom: 1px solid #e0e0e0;
-    line-height: 1.6;
+    line-height: 1.2;
 }
 .table-header {
     font-size: 22px;
@@ -168,6 +244,10 @@ PHOTO_INDEX = build_photo_index(PHOTO_BASE_DIR)
 
 # ========== 主程序 ==========
 def main():
+    # ===== 新增：登录验证（必须放在最前面） =====
+    if not check_password():
+        st.stop()   # 阻止后续代码执行
+
     if AUTOREFRESH_AVAILABLE:
         st_autorefresh(interval=60000, key="auto_refresh")
 
@@ -211,6 +291,15 @@ def main():
         st.code(RAW_DIR)
         st.write("照片库")
         st.code(PHOTO_BASE_DIR)
+
+        # ===== 新增：退出登录按钮（放在侧边栏底部） =====
+        st.divider()
+        if "username" in st.session_state:
+            st.caption(f"👤 当前用户：{st.session_state.username}")
+        if st.button("🚪 退出登录", use_container_width=True):
+            st.session_state.authenticated = False
+            st.session_state.pop("username", None)
+            st.rerun()
 
     if not selected_dates:
         st.warning("请选择日期")
@@ -407,45 +496,14 @@ def main():
         left_col, right_col = st.columns(2)
 
         with left_col:
-            st.markdown("**成型人员分析**")
-            show_molding_machine = st.checkbox("显示成型机台", value=True)
-            condition = ((df["车间"] == "成型") | (df["类型"] == "次品UF")) & (df["类型"] != "返修")
-            molding_data = df[condition]
-            if not molding_data.empty:
-                if show_molding_machine:
-                    person_detail = molding_data.groupby(["成型主手", "成型", "类型", "病象"]).size().reset_index(name="数量")
-                    extra = "成型"
-                else:
-                    person_detail = molding_data.groupby(["成型主手", "类型", "病象"]).size().reset_index(name="数量")
-                    extra = None
-                person_detail["合计"] = person_detail.groupby("成型主手")["数量"].transform("sum")
-                person_detail = person_detail.sort_values(["合计", "成型主手", "类型", "病象"],
-                                                          ascending=[False, True, True, True])
-                html = render_merged_person_table(person_detail, "成型主手", extra_col=extra)
-                if html:
-                    st.markdown(html, unsafe_allow_html=True)
-            else:
-                st.info("无成型及UF数据")
+            # 直接调用封装好的成型分析函数
+            from modules.personnel import render_molding_analysis
+            render_molding_analysis(df)
 
         with right_col:
-            st.markdown("**硫化人员分析**")
-            show_vul_machine = st.checkbox("显示硫化机台", value=True)
-            vul_data = df[(df["车间"] == "硫化") & (df["类型"].isin(["废品", "次品外观"]))]
-            if not vul_data.empty:
-                if show_vul_machine:
-                    person_detail = vul_data.groupby(["硫化主手", "硫化", "类型", "病象"]).size().reset_index(name="数量")
-                    extra = "硫化"
-                else:
-                    person_detail = vul_data.groupby(["硫化主手", "类型", "病象"]).size().reset_index(name="数量")
-                    extra = None
-                person_detail["合计"] = person_detail.groupby("硫化主手")["数量"].transform("sum")
-                person_detail = person_detail.sort_values(["合计", "硫化主手", "类型", "病象"],
-                                                          ascending=[False, True, True, True])
-                html = render_merged_person_table(person_detail, "硫化主手", extra_col=extra)
-                if html:
-                    st.markdown(html, unsafe_allow_html=True)
-            else:
-                st.info("无硫化数据（废品/次品外观）")
+            # 直接调用封装好的硫化分析函数
+            from modules.personnel import render_vulcanization_analysis
+            render_vulcanization_analysis(df)
 
     # ==================== 返修分析 ====================
     with tab5:

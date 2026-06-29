@@ -4,6 +4,16 @@ import plotly.express as px
 import plotly.graph_objects as go
 from modules.photo import trigger_image_popup
 
+# ---------- 辅助：安全触发弹窗，防止重复 ----------
+def _safe_trigger_popup(barcode, photo_index):
+    """检查 session_state 中上次弹出的条码，若相同则忽略"""
+    if "last_popup_barcode" not in st.session_state:
+        st.session_state.last_popup_barcode = None
+    if barcode != st.session_state.last_popup_barcode:
+        st.session_state.last_popup_barcode = barcode
+        trigger_image_popup(barcode, photo_index)
+
+
 def render_summary_table(summary_df, key_prefix, height=480):
     """渲染汇总表"""
     if summary_df.empty:
@@ -23,7 +33,7 @@ def render_summary_table(summary_df, key_prefix, height=480):
 
 
 def render_detail_table(df, key_prefix, height='content', enable_click=True, photo_index=None):
-    """渲染明细表，显示全部行"""
+    """渲染明细表，显示全部行（支持安全弹窗）"""
     if df.empty:
         st.info("无数据")
         return
@@ -89,7 +99,8 @@ def render_detail_table(df, key_prefix, height='content', enable_click=True, pho
         if event.selection.rows:
             selected_row = event.selection.rows[0]
             barcode = str(filtered_df.iloc[selected_row]["条码"])
-            trigger_image_popup(barcode, photo_index)
+            # 防重复弹窗
+            _safe_trigger_popup(barcode, photo_index)
     else:
         st.dataframe(
             filtered_df[show_cols],
@@ -147,7 +158,8 @@ def render_waste_appearance_analysis(combined_df, photo_index, waste_df, app_df,
                 if event_detail.selection.rows:
                     detail_row = event_detail.selection.rows[0]
                     barcode = str(detail.iloc[detail_row]["条码"])
-                    trigger_image_popup(barcode, photo_index)
+                    # 防重复弹窗
+                    _safe_trigger_popup(barcode, photo_index)
             else:
                 st.info("无明细数据")
         else:
@@ -301,8 +313,6 @@ def render_waste_appearance_analysis(combined_df, photo_index, waste_df, app_df,
                 st.success("未发现明显集中趋势")
 
             # ----- TOP5 四宫格（纯黑、窄柱、无纵轴标题） -----
-            # 注意：此处已删除 "### 📊 TOP5 贡献分析" 标题
-
             def safe_top5(series, name):
                 ser = series.astype(str).replace("nan", "").replace("None", "")
                 ser = ser[ser != ""]
