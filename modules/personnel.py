@@ -1,10 +1,80 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 
+# ========== 成型部门主手综合排行（废品+外观次品总数降序 TOP10） ==========
+def render_master_ranking(df, key_prefix="master_rank"):
+    if df.empty or "成型主手" not in df.columns:
+        st.info("无成型主手数据")
+        return
+
+    df = df.dropna(subset=["成型主手"])
+    df = df[df["成型主手"].astype(str).str.strip() != ""]
+
+    # 降序排列，取前10
+    counts = df["成型主手"].value_counts().head(10).reset_index()
+    counts.columns = ["成型主手", "数量"]
+
+    fig = px.bar(counts, x="成型主手", y="数量", text="数量",
+                 title="成型部门主手综合排行（降序）",
+                 color="数量", color_continuous_scale="Blues")
+    fig.update_traces(
+        textposition="outside",
+        textfont=dict(size=16, color="black", family="Microsoft YaHei"),
+        cliponaxis=False
+    )
+    fig.update_layout(
+        clickmode="event+select",
+        height=300,
+        template="plotly_white",
+        margin=dict(l=10, r=10, t=40, b=10),
+        xaxis=dict(title=None, tickfont=dict(size=14, color="black")),
+        yaxis=dict(title=None, tickfont=dict(size=14, color="black")),
+        coloraxis_showscale=False
+    )
+
+    chart_key = f"{key_prefix}_chart"
+    event = st.plotly_chart(fig, use_container_width=True,
+                            on_select="rerun", key=chart_key)
+
+    # 处理点击：设置一次性标记
+    if event and event.selection and event.selection.points:
+        clicked = event.selection.points[0]["x"]
+        last = st.session_state.get(f"{key_prefix}_last")
+        if clicked != last:
+            st.session_state[f"{key_prefix}_last"] = clicked
+            st.session_state[f"{key_prefix}_selected"] = clicked
+            st.session_state[f"{key_prefix}_pending"] = True   # 一次性标记
+            st.rerun()
+
+    # 弹窗逻辑：仅当本次有点击触发时才显示
+    pending_key = f"{key_prefix}_pending"
+    if st.session_state.get(pending_key):
+        # 立即清除标记，防止后续渲染再次触发
+        st.session_state[pending_key] = False
+        selected = st.session_state[f"{key_prefix}_selected"]
+        detail_df = df[df["成型主手"] == selected]
+
+        @st.dialog(f"📋 {selected} 的明细", width="large")
+        def show_dialog():
+            st.subheader(f"成型主手：{selected}")
+            display_cols = [
+                "病象", "条码", "硫化", "硫化主手", "硫化日期",
+                "成型", "成型时间", "成型主手", "规格", "花纹", "位置", "车间"
+            ]
+            available = [c for c in display_cols if c in detail_df.columns]
+            st.dataframe(detail_df[available], use_container_width=True, height=500)
+            if st.button("关闭", key=f"{key_prefix}_close"):
+                # 清理所有相关状态
+                for k in [f"{key_prefix}_selected", f"{key_prefix}_last", pending_key]:
+                    if k in st.session_state:
+                        del st.session_state[k]
+                st.rerun()
+        show_dialog()
+
+
+# ========== 以下原有函数保持不变 ==========
 def render_merged_person_table(person_df, person_col, type_col="类型", cause_col="病象", count_col="数量", total_col="合计", max_height="600px", extra_col=None):
-    """
-    渲染合并的人员统计表，自动合并人员、类型行，并添加针对该表格的样式。
-    """
     if person_df.empty:
         return ""
 
@@ -17,7 +87,6 @@ def render_merged_person_table(person_df, person_col, type_col="类型", cause_c
         if c not in person_df.columns:
             raise ValueError(f"缺少列: {c}")
 
-    # 注入针对该表格的 CSS（行高增大，但标题复选框间距缩小在外部控制）
     st.markdown("""
     <style>
     .merged-person-table {
@@ -46,7 +115,6 @@ def render_merged_person_table(person_df, person_col, type_col="类型", cause_c
         border: 1px solid #ccc;
         border-radius: 8px;
     }
-    /* 缩小复选框与标题之间的间距 */
     .person-checkbox-row {
         margin-top: -10px !important;
         margin-bottom: 6px !important;
@@ -97,13 +165,8 @@ def render_merged_person_table(person_df, person_col, type_col="类型", cause_c
     return html
 
 
-# ========== 成型人员分析 ==========
 def render_molding_analysis(df):
-    """
-    渲染成型人员分析（含显示成型机台复选框）
-    """
     st.markdown("**成型人员分析**")
-    # 使用容器减小复选框上方间距
     with st.container():
         show_molding_machine = st.checkbox("显示成型机台", value=True, key="molding_machine")
 
@@ -129,27 +192,16 @@ def render_molding_analysis(df):
         st.info("无成型及UF数据")
 
 
-# ========== 硫化人员分析 ==========
 def render_vulcanization_analysis(df):
-    """
-    渲染硫化人员分析
-    - 显示硫化机台（复选框）
-    - 不显示胎侧缺胶（默认勾选）
-    """
     st.markdown("**硫化人员分析**")
 
-    # 两个复选框并排
     col1, col2 = st.columns(2)
     with col1:
         show_vul_machine = st.checkbox("显示硫化机台", value=True, key="vul_machine")
     with col2:
-        # 改为“不显示胎侧缺胶”，默认勾选
         hide_side_glue = st.checkbox("不显示胎侧缺胶", value=True, key="hide_side_glue")
 
-    # 基础数据：硫化车间的废品和外观次品
     vul_data = df[(df["车间"] == "硫化") & (df["类型"].isin(["废品", "次品外观"]))]
-
-    # 如果勾选了“不显示胎侧缺胶”，则排除该病象
     if hide_side_glue:
         vul_data = vul_data[vul_data["病象"] != "胎侧缺胶"]
 
