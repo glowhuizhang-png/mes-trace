@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import base64
-from st_aggrid import AgGrid, GridOptionsBuilder
 from modules.detail_utils import render_detail_table
 
 IMG_HEIGHT = 120
@@ -313,12 +312,12 @@ def render_waste_appearance_analysis(
 
             top12_values = pivot[pivot[dim_col] != "其他"][dim_col].tolist()
 
-            # 柱形图：隐藏标题
+            # 柱形图（隐藏标题）
             fig = px.bar(
                 pivot,
                 x=dim_col,
                 y=["废品", "次品外观"],
-                title="",                              # 设为空
+                title="",
                 labels={"value": "数量", "variable": "类型"},
                 barmode="stack",
                 text_auto=True,
@@ -331,7 +330,7 @@ def render_waste_appearance_analysis(
                 customdata=pivot[["废品", "次品外观", "总数"]].values
             )
             fig.update_layout(
-                title=None,                            # 删除标题
+                title=None,
                 xaxis=dict(title=None, tickfont=dict(size=20, family="Microsoft YaHei", color="black"), tickangle=45),
                 yaxis=dict(title="数量", tickfont=dict(size=20, family="Microsoft YaHei", color="black")),
                 height=400,
@@ -387,10 +386,7 @@ def render_waste_appearance_analysis(
                         unsafe_allow_html=True
                     )
 
-                    # ---------- 紧凑明细表（AgGrid） ----------
-                    # 隐藏“明细数据”标题，直接显示表格
-                    # st.markdown("### 📋 明细数据")   # 注释掉或删除
-
+                    # 原生 st.dataframe 明细表
                     cols_list = [
                         dim_col,
                         "病象",
@@ -405,29 +401,12 @@ def render_waste_appearance_analysis(
                         "车间"
                     ]
                     display_cols = list(dict.fromkeys([c for c in cols_list if c in drill_df.columns]))
-
-                    gb = GridOptionsBuilder.from_dataframe(drill_df[display_cols])
-                    gb.configure_default_column(
-                        resizable=True,
-                        filterable=False,
-                        sortable=True,
-                        suppressMenu=True,
-                        wrapText=False,
-                    )
-                    gb.configure_grid_options(
-                        rowHeight=22,
-                        headerHeight=26,
-                        suppressRowHoverHighlight=True,
-                        domLayout='autoHeight',
-                    )
-
-                    AgGrid(
+                    st.dataframe(
                         drill_df[display_cols],
-                        gridOptions=gb.build(),
-                        height=None,
-                        allow_unsafe_jscode=True,
-                        theme='streamlit',
-                        update_mode='no_update',
+                        use_container_width=True,
+                        height='content',
+                        hide_index=True,
+                        key="drill_down_table"
                     )
 
                     # TOP5 四宫格（可折叠）
@@ -469,7 +448,7 @@ def render_waste_appearance_analysis(
                                             textfont=dict(size=font_size, color=text_color, family="Microsoft YaHei"),
                                             marker=dict(line=dict(color='black', width=0.5))
                                         )
-                                        fig_top.update_layout(height=200, bargap=0.3, margin=dict(l=0, r=0, t=40, b=0),
+                                        fig_top.update_layout(height=300, bargap=0.4, margin=dict(l=0, r=0, t=40, b=0),
                                                               title=dict(font=dict(size=title_font, color=text_color, family="Microsoft YaHei")),
                                                               xaxis=dict(tickfont=dict(size=label_font, color=text_color, family="Microsoft YaHei"), title=None, showgrid=False),
                                                               yaxis=dict(tickfont=dict(size=label_font, color=text_color, family="Microsoft YaHei"), title=None, showgrid=False),
@@ -489,7 +468,7 @@ def render_waste_appearance_analysis(
                                             textfont=dict(size=font_size, color=text_color, family="Microsoft YaHei"),
                                             marker=dict(line=dict(color='black', width=0.5))
                                         )
-                                        fig_top.update_layout(height=200, bargap=0.3, margin=dict(l=0, r=0, t=40, b=0),
+                                        fig_top.update_layout(height=300, bargap=0.4, margin=dict(l=0, r=0, t=40, b=0),
                                                               title=dict(font=dict(size=title_font, color=text_color, family="Microsoft YaHei")),
                                                               xaxis=dict(tickfont=dict(size=label_font, color=text_color, family="Microsoft YaHei"), title=None, showgrid=False),
                                                               yaxis=dict(tickfont=dict(size=label_font, color=text_color, family="Microsoft YaHei"), title=None, showgrid=False),
