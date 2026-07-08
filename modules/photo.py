@@ -1,44 +1,48 @@
-import streamlit as st
 import os
-from PIL import Image
-from modules.utils import full_to_half
+import streamlit as st
 
+@st.cache_resource
 def build_photo_index(photo_base_dir):
-    """扫描照片目录，建立条码到文件路径的映射（无缓存）"""
-    photo_map = {}
+    photo_index = {}
     if not os.path.exists(photo_base_dir):
-        return photo_map
+        return photo_index
     for root, _, files in os.walk(photo_base_dir):
         for file in files:
-            if file.lower().endswith((".jpg", ".jpeg", ".png")):
+            if file.lower().endswith(('.jpg', '.jpeg', '.png', '.bmp', '.gif')):
                 barcode = os.path.splitext(file)[0]
-                # 若存在重复条码，保留第一个（或改为覆盖，取决于需求）
-                if barcode not in photo_map:
-                    photo_map[barcode] = os.path.join(root, file)
-    return photo_map
+                photo_index[barcode] = os.path.join(root, file)
+    return photo_index
 
-def find_photo(barcode, photo_index):
-    barcode = full_to_half(str(barcode).strip())
-    return photo_index.get(barcode)
-
-@st.dialog("轮胎照片", width="large")
-def show_big_image(img_path):
-    try:
-        img = Image.open(img_path)
-        st.image(img, use_container_width=True)  # 自适应宽度
-    except Exception as e:
-        st.warning(f"图片加载失败：{e}")
-
-import time
-
-def trigger_image_popup(barcode, photo_index):
-    # 防抖：如果 2 秒内已经弹过，则忽略
-    now = time.time()
-    if "last_popup_time" in st.session_state and (now - st.session_state.last_popup_time) < 2:
+def trigger_image_popup(barcode, photo_index, fuzzy=False):
+    if photo_index is None:
         return
-    fp = find_photo(barcode, photo_index)
-    if fp:
-        st.session_state.last_popup_time = now
-        show_big_image(fp)
-    else:
-        st.warning(f"未找到图片：{barcode}")
+    barcode = str(barcode).strip()
+    img_path = photo_index.get(barcode)
+    if img_path is None and fuzzy:
+        matched = [k for k in photo_index if barcode in k]
+        if matched:
+            barcode = matched[0]
+            img_path = photo_index[barcode]
+    if img_path is None:
+        st.warning(f"未找到 {barcode} 图片")
+        return
+    # 设置全局弹出状态，使用 popup_photo 避免与旧键冲突
+    st.session_state["selected_photo"] = {"barcode": barcode, "path": img_path}
+
+def render_photo_panel():
+    st.subheader("📷 图片查看")
+    photo = st.session_state.get("selected_photo")
+    if photo is None:
+        st.info("点击明细条码查看图片")
+        return
+    st.caption(f"条码：{photo['barcode']}")
+    st.image(photo["path"], use_container_width=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("❌ 清除", key="clear_photo"):
+            del st.session_state["selected_photo"]
+            st.rerun()
+    with col2:
+        with open(photo["path"], "rb") as f:
+            st.download_button("⬇ 下载", data=f, file_name=os.path.basename(photo["path"]),
+                               use_container_width=True, key="download_photo")
