@@ -1,12 +1,17 @@
-import os
+from pathlib import Path
 
-# 项目根目录 = config.py 所在的目录
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# 项目根目录
+BASE_DIR = Path(__file__).resolve().parent
 
-RULE_FILE = os.path.join(BASE_DIR, "data", "0.rule.xlsx")
-RAW_DIR = os.path.join(BASE_DIR, "data", "raw_data")
-PHOTO_BASE_DIR = os.path.join(BASE_DIR, "data", "photos")
-PRODUCTION_FILE = os.path.join(BASE_DIR, "data", "production", "production.xls")
-UF_DATA_DIR = os.path.join(BASE_DIR, "data", "uf_check")
+# data目录
+DATA_DIR = BASE_DIR / "data"
 
-APP_VERSION = "20260609_003"
+RULE_FILE = DATA_DIR / "0.rule.xlsx"
+RAW_DIR = DATA_DIR / "raw_data"
+PHOTO_BASE_DIR = DATA_DIR / "photos"
+PRODUCTION_FILE = DATA_DIR / "production" / "production.xls"
+UF_DATA_DIR = DATA_DIR / "uf_check"
+
+APP_VERSION = "20260609_001"
+LOGIN_USERNAME = "QA"
+LOGIN_PASSWORD = "123123"
