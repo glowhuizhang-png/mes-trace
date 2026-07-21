@@ -144,26 +144,41 @@ def inject_css():
         padding-top: 0 !important;
     }
     .stTabs .stTabs [data-baseweb="tab"] {
-        font-size: 20px !important;
-        height: 50px !important;
+        font-size: 16px !important;
+        height: 40px !important;
     }
     .merged-repair-table td, .merged-repair-table th {
         text-align: center !important;
         vertical-align: middle !important;
         padding: 6px 3px !important;
         border: 1px solid #ddd !important;
-        font-size: 14px !important;
+        font-size: 12px !important;
         font-weight: 500 !important;
     }
     .merged-repair-table th {
         background-color: #f0f2f6 !important;
-        font-weight: 600 !important;
+        font-weight: 500 !important;
         position: sticky;
         top: 0;
         z-index: 10;
     }
+    /* 成品名称列（使用 class 选择器） */
+    .product-name {
+        text-align: left !important;
+        padding-left: 12px !important;
+        white-space: pre-line !important;
+        word-break: break-word !important;
+    }
+    /* 成型机/硫化机列（居中，保持默认） */
+    .machine {
+        text-align: center !important;
+    }
+    /* 缺陷名称列（居中） */
+    .defect-name {
+        text-align: center !important;
+    }
     .scrollable-table {
-        max-height: 600px;
+        max-height: 500px;
         overflow-y: auto;
         border: 1px solid #ccc;
     }
@@ -651,13 +666,15 @@ def main():
         # 直接复用已有的 correction 模块逻辑（您原有的修正代码），此处略作精简
         render_correction_tab(df, selected_dates)
 
-# 修正标签页渲染函数（您原本的代码迁移到此处）
 def render_correction_tab(df, selected_dates):
     st.subheader("🔧 数据修正（车间 / 病象）")
     st.caption("修改后点击「保存修正记录」持久化，点击「应用到源文件」会修改原始 Excel（请先备份）")
 
     corrections = load_corrections()
     df_corrected = apply_corrections_to_df(df, corrections)
+
+    # ========== 只显示废品和外观次品 ==========
+    df_corrected = df_corrected[df_corrected["类型"].isin(["废品", "次品外观"])]
 
     # 筛选控件
     col_f1, col_f2, col_f3, col_f4 = st.columns(4)
@@ -689,7 +706,7 @@ def render_correction_tab(df, selected_dates):
     display_cols = [c for c in display_cols if c in filtered.columns]
 
     if filtered.empty:
-        st.info("没有匹配的数据")
+        st.info("没有匹配的废品/外观次品数据")
         return
 
     edited_df = st.data_editor(
