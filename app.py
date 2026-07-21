@@ -20,8 +20,8 @@ from modules.derivations import derive_columns
 from modules.photo import build_photo_index, trigger_image_popup
 from modules.charts import style_bar_chart
 from modules.personnel import (
-    render_merged_person_table, 
-    render_molding_analysis, 
+    render_merged_person_table,
+    render_molding_analysis,
     render_vulcanization_analysis,
     render_master_ranking
 )
@@ -35,7 +35,7 @@ from modules.correction import (
     save_corrections, write_corrections_to_source
 )
 
-# ---------- CSS 样式集中管理 ----------
+# ---------- CSS 样式 ----------
 def inject_css():
     st.markdown("""
     <style>
@@ -101,7 +101,7 @@ def inject_css():
         border-left: 5px solid #1976D2;
         padding-left: 12px;
     }
-    /* 固定 Tabs 栏 */
+    /* 固定 Tabs */
     .stTabs [data-baseweb="tab-list"] {
         position: fixed !important;
         top: 3.5rem !important;
@@ -162,18 +162,15 @@ def inject_css():
         top: 0;
         z-index: 10;
     }
-    /* 成品名称列（使用 class 选择器） */
     .product-name {
         text-align: left !important;
         padding-left: 12px !important;
         white-space: pre-line !important;
         word-break: break-word !important;
     }
-    /* 成型机/硫化机列（居中，保持默认） */
     .machine {
         text-align: center !important;
     }
-    /* 缺陷名称列（居中） */
     .defect-name {
         text-align: center !important;
     }
@@ -185,129 +182,108 @@ def inject_css():
     </style>
     """, unsafe_allow_html=True)
 
-# ---------- 登录验证 ----------
+# ---------- 登录验证（左侧图片）----------
 def check_password():
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
     if st.session_state.authenticated:
         return True
 
-    # 全屏背景容器，垂直居中
+    # 登录图片路径（407x644 产品图）
+    img_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "login.png")
+    if not os.path.exists(img_path):
+        img_path = "https://via.placeholder.com/407x644?text=轮胎产品"
+
+    # 精简 CSS
     st.markdown("""
     <style>
-    /* 全局背景渐变 */
     .stApp {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        background: linear-gradient(135deg, #eef3fb, #dbe7f5);
     }
-    /* 隐藏 Streamlit 默认页脚和菜单 */
-    footer, header, #MainMenu {visibility: hidden;}
-    /* 登录容器：玻璃拟态，绝对居中 */
-    .login-wrapper {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 80vh;
-        margin: 0;
-        padding: 0;
+    header, footer, #MainMenu {
+        visibility: hidden;
     }
-    .login-box {
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(15px);
-        border-radius: 24px;
-        padding: 40px 50px;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.08);
-        border: 1px solid rgba(255,255,255,0.5);
-        width: 420px;
-        text-align: center;
-    }
-    .login-icon {
-        font-size: 56px;
-        margin-bottom: 16px;
+    .block-container {
+        max-width: 1000px;
+        padding-top: 3vh;
+        padding-bottom: 0;
     }
     .login-title {
-        font-size: 28px;
+        font-size: 40px;
         font-weight: 700;
-        color: #0a2d6e;
-        margin-bottom: 8px;
-        font-family: 'Microsoft YaHei', sans-serif;
+        color: #1b2b5b;
+        margin-bottom: 10px;
     }
     .login-sub {
-        font-size: 15px;
-        color: #64748b;
+        font-size: 18px;
+        color: #999;
+        margin-bottom: 40px;
+    }
+    div[data-testid="stTextInput"] {
         margin-bottom: 28px;
-        font-family: 'Microsoft YaHei', sans-serif;
     }
-    /* 隐藏 Streamlit 表单默认外边距 */
-    div[data-testid="stForm"] {
-        border: none;
-        padding: 0;
-        background: transparent;
-    }
-    /* 输入框样式 */
     div[data-testid="stTextInput"] input {
-        border-radius: 12px;
-        border: 1px solid #e2e8f0;
-        padding: 12px 16px;
-        font-size: 16px;
-        background: white;
+        border: none;
+        border-bottom: 2px solid #d8d8d8;
+        border-radius: 0;
+        background: transparent;
+        font-size: 18px;
+        padding: 12px;
+        box-shadow: none;
     }
-    /* 登录按钮 */
+    div[data-testid="stTextInput"] input:focus {
+        border-bottom: 2px solid #2459ff;
+    }
     div[data-testid="stFormSubmitButton"] button {
         width: 100%;
-        border-radius: 12px;
-        background: linear-gradient(135deg, #1976D2, #0D47A1);
-        color: white;
-        font-size: 18px;
-        font-weight: 600;
-        padding: 12px;
+        height: 52px;
+        border-radius: 6px;
         border: none;
-        transition: all 0.3s ease;
-        margin-top: 10px;
+        background: #0d3cff;
+        color: white;
+        font-size: 20px;
+        font-weight: bold;
     }
     div[data-testid="stFormSubmitButton"] button:hover {
-        background: linear-gradient(135deg, #1E88E5, #1565C0);
-        box-shadow: 0 6px 20px rgba(25, 118, 210, 0.3);
-        transform: translateY(-2px);
+        background: #002fc8;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # 使用 columns 实现大致居中（Streamlit 限制），配合自定义 CSS 精确定位
-    _, center_col, _ = st.columns([1, 2, 1])
-    with center_col:
-        # 自定义 HTML 显示图标、标题、副标题
-        st.markdown("""
-        <div class="login-box">
-            <div class="login-icon">🛞</div>
-            <div class="login-title">MES质量追溯系统</div>
-            <div class="login-sub">请输入账号和密码登录</div>
-        </div>
-        """, unsafe_allow_html=True)
+    # 左右分栏
+    left, right = st.columns([0.8, 1.2], gap="large")
 
-        # 表单放在 box 内（Streamlit 表单会生成额外 div，我们通过 CSS 消除边框背景）
-        with st.form("login_form", clear_on_submit=False):
-            username = st.text_input("👤 用户名", placeholder="请输入用户名")
-            password = st.text_input("🔒 密码", type="password", placeholder="请输入密码")
-            submitted = st.form_submit_button("🔐 登 录")
+    with left:
+        st.image(img_path, width=407)   # 匹配原始图片尺寸
 
-            if submitted:
-                try:
-                    from config import LOGIN_USERNAME, LOGIN_PASSWORD
-                    valid = (username == LOGIN_USERNAME and password == LOGIN_PASSWORD)
-                except ImportError:
-                    st.error("配置文件缺失，请联系管理员")
-                    return False
-                if valid:
-                    st.session_state.authenticated = True
-                    st.session_state.username = username
-                    st.rerun()
-                else:
-                    st.error("❌ 用户名或密码错误，请重试")
+    with right:
+        st.markdown('<div class="login-title">MES质量追溯系统</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-sub">Manufacturing Execution System</div>', unsafe_allow_html=True)
+
+        with st.form("login_form"):
+            username = st.text_input("用户名", placeholder="👤 请输入用户名", label_visibility="collapsed")
+            password = st.text_input("密码", type="password", placeholder="🔒 请输入密码", label_visibility="collapsed")
+            st.markdown('<div style="text-align:right; color:#888; font-size:15px;">忘记密码</div>', unsafe_allow_html=True)
+            login = st.form_submit_button("登 录")
+
+    if login:
+        try:
+            from config import LOGIN_USERNAME, LOGIN_PASSWORD
+            valid = (username == LOGIN_USERNAME and password == LOGIN_PASSWORD)
+        except ImportError:
+            st.error("配置文件缺失，请联系管理员")
+            return False
+        if valid:
+            st.session_state.authenticated = True
+            st.session_state.username = username
+            st.rerun()
+        else:
+            st.error("用户名或密码错误")
+
     return False
 
 # ---------- 辅助函数 ----------
 def get_available_dates(raw_dir):
-    """扫描 raw_dir 下所有 yyyyMMdd.xlsx / .xls 文件"""
     dates = []
     available_files = set()
     for ext in ["*.xlsx", "*.xls"]:
@@ -323,7 +299,6 @@ def get_available_dates(raw_dir):
     return dates, available_files
 
 def load_all_data(selected_dates):
-    """集中加载所有数据，便于缓存管理"""
     raw = load_raw(selected_dates, RAW_DIR)
     if raw.empty:
         return None, None, None, None, None, None
@@ -331,7 +306,6 @@ def load_all_data(selected_dates):
     code_to_cause, code_to_shop, cause_to_shop = load_rule(RULE_FILE)
     df = derive_columns(raw, code_to_cause, code_to_shop, cause_to_shop)
 
-    # 应用已保存的修正记录
     corrections = load_corrections()
     if corrections:
         df = apply_corrections_to_df(df, corrections)
@@ -347,7 +321,7 @@ def load_all_data(selected_dates):
 
     return df, waste_df, app_df, uf_df, repair_df, total_production, daily_prod_dict, uf_check_data
 
-# ---------- 综合看板渲染 ----------
+# ---------- 综合看板 ----------
 def render_dashboard(df, waste_df, app_df, uf_df, total_production, daily_prod_dict, selected_dates):
     waste_shop = waste_df["车间"].value_counts().reset_index()
     waste_shop.columns = ["车间", "数量"]
@@ -381,15 +355,14 @@ def render_dashboard(df, waste_df, app_df, uf_df, total_production, daily_prod_d
     col_left, col_right = st.columns(2)
 
     fig1 = px.bar(waste_shop, x="车间", y="数量", text="数量", text_auto=True)
-    col_left.plotly_chart(style_bar_chart(fig1, "废品车间分布"), width='stretch', key="tab1_waste_shop")
+    col_left.plotly_chart(style_bar_chart(fig1, "废品车间分布"), use_container_width=True, key="tab1_waste_shop")
 
     fig2 = px.bar(app_shop, x="车间", y="数量", text="数量", text_auto=True)
-    col_right.plotly_chart(style_bar_chart(fig2, "次品外观车间分布"), width='stretch', key="tab1_app_shop")
+    col_right.plotly_chart(style_bar_chart(fig2, "次品外观车间分布"), use_container_width=True, key="tab1_app_shop")
 
     fig3 = px.bar(uf_mac, x="成型", y="数量", text="数量", text_auto=True)
-    st.plotly_chart(style_bar_chart(fig3, "UF次品成型机分布"), width='stretch', key="tab1_uf_mac")
+    st.plotly_chart(style_bar_chart(fig3, "UF次品成型机分布"), use_container_width=True, key="tab1_uf_mac")
 
-    # 趋势
     if len(selected_dates) > 1 and daily_prod_dict:
         daily_stats = []
         for d in sorted(selected_dates):
@@ -409,81 +382,115 @@ def render_dashboard(df, waste_df, app_df, uf_df, total_production, daily_prod_d
         if daily_stats:
             daily_stats_df = pd.DataFrame(daily_stats)
             st.subheader("废品率趋势")
-            target_waste = 0.0006
             fig_waste = go.Figure()
-            fig_waste.add_trace(go.Scatter(
-                x=daily_stats_df["日期"], y=daily_stats_df["废品率"],
-                mode='lines+markers+text',
-                text=[f"{v:.4%}" for v in daily_stats_df["废品率"]],
-                textposition='top center',
-                textfont=dict(size=15, color='black', family='Microsoft YaHei'),
-                line=dict(color='#1f77b4', width=2),
-                marker=dict(size=8, line=dict(width=0.75, color='white')),
-            ))
-            fig_waste.add_hline(y=target_waste, line_dash="dot", line_color="red",
-                                annotation_text="目标0.06%", annotation_position="bottom right")
-            fig_waste.update_layout(
-                template="plotly_white", title="废品率趋势",
-                xaxis=dict(title=None, showline=True, linecolor='gray', tickfont=dict(family='Microsoft YaHei')),
-                yaxis=dict(title="废品率", tickformat='.2%', range=[0, 0.0015], showline=True, linecolor='gray', tickfont=dict(family='Microsoft YaHei')),
-                showlegend=False, height=350, margin=dict(t=60, b=40, l=40, r=20)
-            )
-            st.plotly_chart(fig_waste, width='stretch', key="waste_trend")
+            fig_waste.add_trace(go.Scatter(x=daily_stats_df["日期"], y=daily_stats_df["废品率"], mode='lines+markers+text', text=[f"{v:.4%}" for v in daily_stats_df["废品率"]], textposition='top center', line=dict(color='#1f77b4'), marker=dict(size=8)))
+            fig_waste.add_hline(y=0.0006, line_dash="dot", line_color="red")
+            fig_waste.update_layout(height=350, margin=dict(t=60, b=40), template="plotly_white")
+            st.plotly_chart(fig_waste, use_container_width=True)
 
             st.subheader("综合合格率趋势")
-            target_qual = 0.993
             fig_qual = go.Figure()
-            fig_qual.add_trace(go.Scatter(
-                x=daily_stats_df["日期"], y=daily_stats_df["综合合格率"],
-                mode='lines+markers+text',
-                text=[f"{v:.2%}" for v in daily_stats_df["综合合格率"]],
-                textposition='top center',
-                textfont=dict(size=15, color='black', family='Microsoft YaHei'),
-                line=dict(color='green', width=2),
-                marker=dict(size=8, color='green', line=dict(width=0.75, color='white')),
-            ))
-            fig_qual.add_hline(y=target_qual, line_dash="dot", line_color="red",
-                               annotation_text="目标99.3%", annotation_position="bottom right")
-            fig_qual.update_layout(
-                template="plotly_white", title="综合合格率趋势",
-                xaxis=dict(title=None, showline=True, linecolor='gray', tickfont=dict(family='Microsoft YaHei')),
-                yaxis=dict(title="合格率", tickformat='.2%', range=[0.99, 1.0], showline=True, linecolor='gray', tickfont=dict(family='Microsoft YaHei')),
-                showlegend=False, height=350, margin=dict(t=60, b=40, l=40, r=20)
-            )
-            st.plotly_chart(fig_qual, width='stretch', key="qual_trend")
+            fig_qual.add_trace(go.Scatter(x=daily_stats_df["日期"], y=daily_stats_df["综合合格率"], mode='lines+markers+text', text=[f"{v:.2%}" for v in daily_stats_df["综合合格率"]], line=dict(color='green'), marker=dict(size=8)))
+            fig_qual.add_hline(y=0.993, line_dash="dot", line_color="red")
+            fig_qual.update_layout(height=350, margin=dict(t=60, b=40), template="plotly_white")
+            st.plotly_chart(fig_qual, use_container_width=True)
 
             st.subheader("外观次品率及UF次品率趋势")
             fig_app_uf = go.Figure()
-            fig_app_uf.add_trace(go.Scatter(
-                x=daily_stats_df["日期"], y=daily_stats_df["外观次品率"],
-                mode='lines+markers+text', name='外观次品率',
-                text=[f"{v:.4%}" for v in daily_stats_df["外观次品率"]],
-                textposition='top center',
-                textfont=dict(size=15, color='black', family='Microsoft YaHei'),
-                line=dict(color='orange', width=2),
-                marker=dict(size=8, line=dict(width=0.75, color='white')),
-            ))
-            fig_app_uf.add_trace(go.Scatter(
-                x=daily_stats_df["日期"], y=daily_stats_df["UF次品率"],
-                mode='lines+markers+text', name='UF次品率',
-                text=[f"{v:.4%}" for v in daily_stats_df["UF次品率"]],
-                textposition='top center',
-                textfont=dict(size=15, color='black', family='Microsoft YaHei'),
-                line=dict(color='purple', width=2),
-                marker=dict(size=8, line=dict(width=0.75, color='white')),
-            ))
-            fig_app_uf.update_layout(
-                template="plotly_white", title="外观次品率及UF次品率趋势",
-                xaxis=dict(title=None, showline=True, linecolor='gray', tickfont=dict(family='Microsoft YaHei')),
-                yaxis=dict(title="比率", tickformat='.2%', range=[0.0002, 0.006], showline=True, linecolor='gray', tickfont=dict(family='Microsoft YaHei')),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, font=dict(family='Microsoft YaHei')),
-                height=350, margin=dict(t=60, b=40, l=40, r=20)
-            )
-            st.plotly_chart(fig_app_uf, width='stretch', key="app_uf_trend")
+            fig_app_uf.add_trace(go.Scatter(x=daily_stats_df["日期"], y=daily_stats_df["外观次品率"], mode='lines+markers+text', name='外观次品率', line=dict(color='orange')))
+            fig_app_uf.add_trace(go.Scatter(x=daily_stats_df["日期"], y=daily_stats_df["UF次品率"], mode='lines+markers+text', name='UF次品率', line=dict(color='purple')))
+            fig_app_uf.update_layout(height=350, margin=dict(t=60, b=40), template="plotly_white")
+            st.plotly_chart(fig_app_uf, use_container_width=True)
+
+# ---------- 数据修正页 ----------
+def render_correction_tab(df, selected_dates):
+    st.subheader("🔧 数据修正（车间 / 病象）")
+    st.caption("修改后点击「保存修正记录」持久化，点击「应用到源文件」会修改原始 Excel（请先备份）")
+
+    corrections = load_corrections()
+    df_corrected = apply_corrections_to_df(df, corrections)
+    df_corrected = df_corrected[df_corrected["类型"].isin(["废品", "次品外观"])]
+
+    col_f1, col_f2, col_f3, col_f4 = st.columns(4)
+    with col_f1:
+        shops = ["全部"] + sorted(df_corrected["车间"].dropna().unique().tolist())
+        selected_shop = st.selectbox("车间", shops, key="corr_shop")
+    with col_f2:
+        causes = ["全部"] + sorted(df_corrected["病象"].dropna().unique().tolist())
+        selected_cause = st.selectbox("病象", causes, key="corr_cause")
+    with col_f3:
+        machines = ["全部"] + sorted(df_corrected["成型"].dropna().unique().tolist())
+        selected_machine = st.selectbox("成型机", machines, key="corr_machine")
+    with col_f4:
+        masters = ["全部"] + sorted(df_corrected["成型主手"].dropna().unique().tolist())
+        selected_master = st.selectbox("成型主手", masters, key="corr_master")
+
+    filtered = df_corrected.copy()
+    if selected_shop != "全部":
+        filtered = filtered[filtered["车间"] == selected_shop]
+    if selected_cause != "全部":
+        filtered = filtered[filtered["病象"] == selected_cause]
+    if selected_machine != "全部":
+        filtered = filtered[filtered["成型"] == selected_machine]
+    if selected_master != "全部":
+        filtered = filtered[filtered["成型主手"] == selected_master]
+
+    display_cols = ["条码", "车间", "病象", "规格", "花纹", "成型", "成型主手", "硫化", "硫化主手", "硫化日期", "成型时间", "位置"]
+    display_cols = [c for c in display_cols if c in filtered.columns]
+
+    if filtered.empty:
+        st.info("没有匹配的数据")
+        return
+
+    edited_df = st.data_editor(
+        filtered[display_cols],
+        column_config={
+            "车间": st.column_config.SelectboxColumn("车间", options=["密炼", "部件", "部件成型", "成型", "硫化", "工程", "工艺"]),
+            "病象": st.column_config.SelectboxColumn("病象", options=sorted(df_corrected["病象"].unique()))
+        },
+        hide_index=True,
+        use_container_width=True,
+        height=600,
+        key="correction_editor"
+    )
+
+    original = filtered[display_cols].reset_index(drop=True)
+    edited = edited_df.reset_index(drop=True)
+    changed_mask = (original["车间"] != edited["车间"]) | (original["病象"] != edited["病象"])
+    changed_rows = edited[changed_mask]
+
+    if not changed_rows.empty:
+        st.info(f"检测到 {len(changed_rows)} 行数据发生变化")
+        if st.button("💾 保存修正记录"):
+            new_corrections = {}
+            for _, row in changed_rows.iterrows():
+                barcode = str(row["条码"])
+                new_corrections[barcode] = {"车间": row["车间"], "病象": row["病象"]}
+            corrections.update(new_corrections)
+            save_corrections(corrections)
+            st.success("✅ 修正记录已保存！")
+            st.rerun()
+    else:
+        st.success("✅ 当前数据与修正记录一致，无变更")
+
+    if corrections:
+        st.divider()
+        st.subheader("📋 已保存的修正记录")
+        corr_df = pd.DataFrame([{"条码": k, "修正车间": v.get("车间", ""), "修正病象": v.get("病象", "")} for k, v in corrections.items()])
+        st.dataframe(corr_df, use_container_width=True, height=200)
+
+        if st.button("⚠️ 应用到源文件（修改Excel）", type="primary"):
+            if st.checkbox("我已备份数据，确认执行修改"):
+                success = write_corrections_to_source(RAW_DIR, corrections, RULE_FILE)
+                if success:
+                    st.success("✅ 源文件已更新！")
+                else:
+                    st.error("应用失败，请检查日志")
+    else:
+        st.info("暂无修正记录")
 
 # ---------- 主程序 ----------
 def main():
-    # 页面配置
     st.set_page_config(page_title="MES质量追溯系统", layout="wide", initial_sidebar_state="expanded")
     inject_css()
 
@@ -495,7 +502,7 @@ def main():
 
     st.title("🏭 MES质量追溯系统")
 
-    # ----- 全局图片查看器（稳定 expander，不丢失当前 Tab） -----
+    # 全局图片查看器
     if "selected_photo" in st.session_state:
         photo = st.session_state["selected_photo"]
         with st.expander(f"📸 条码：{photo['barcode']}", expanded=True):
@@ -506,9 +513,8 @@ def main():
                 if st.button("❌ 关闭", key="close_photo_btn"):
                     del st.session_state["selected_photo"]
                     st.rerun()
-        # 不使用 st.stop()，确保其他页面正常渲染，Tab 状态保留
 
-    # ----- 侧边栏配置 -----
+    # 侧边栏
     with st.sidebar:
         st.header("系统控制")
         col1, col2 = st.columns(2)
@@ -581,7 +587,7 @@ def main():
             st.session_state.pop("username", None)
             st.rerun()
 
-    # ----- 加载数据（使用缓存） -----
+    # 加载数据
     with st.spinner("数据加载中..."):
         data = load_all_data(selected_dates)
         if data[0] is None or data[0].empty:
@@ -589,14 +595,13 @@ def main():
             return
         df, waste_df, app_df, uf_df, repair_df, total_production, daily_prod_dict, uf_check_data = data
 
-    # 构建图片索引（缓存）
     @st.cache_resource
     def get_photo_index():
         return build_photo_index(PHOTO_BASE_DIR)
 
     PHOTO_INDEX = get_photo_index()
 
-    # ----- 标签页 -----
+    # 标签页
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "综合看板", "外观废次品分析", "UF次品",
         "成型/硫化人员分析", "返修分析", "Pareto分析", "数据修正"
@@ -621,16 +626,13 @@ def main():
         uf_mac_all = uf_df["成型"].value_counts().reset_index()
         uf_mac_all.columns = ["成型", "数量"]
         fig_uf = px.bar(uf_mac_all, x="成型", y="数量", text="数量", text_auto=True)
-        st.plotly_chart(style_bar_chart(fig_uf, "UF次品成型机分布"), width='stretch', key="tab3_uf_mac")
+        st.plotly_chart(style_bar_chart(fig_uf, "UF次品成型机分布"), use_container_width=True, key="tab3_uf_mac")
         render_uf_detail_table(uf_df, uf_check_data, "uf_detail", height=680)
 
     with tab4:
         st.subheader("成型/硫化人员分析（不含返修）")
-    
-        # 新增：成型主手综合排行（放在最前面）
         df_waste_app = df[df["类型"].isin(["废品", "次品外观"])]
         render_master_ranking(df_waste_app)
-    
         left_col, right_col = st.columns(2)
         with left_col:
             render_molding_analysis(df)
@@ -663,118 +665,7 @@ def main():
         st.dataframe(pareto_df, use_container_width=True, height=600)
 
     with tab7:
-        # 直接复用已有的 correction 模块逻辑（您原有的修正代码），此处略作精简
         render_correction_tab(df, selected_dates)
-
-def render_correction_tab(df, selected_dates):
-    st.subheader("🔧 数据修正（车间 / 病象）")
-    st.caption("修改后点击「保存修正记录」持久化，点击「应用到源文件」会修改原始 Excel（请先备份）")
-
-    corrections = load_corrections()
-    df_corrected = apply_corrections_to_df(df, corrections)
-
-    # ========== 只显示废品和外观次品 ==========
-    df_corrected = df_corrected[df_corrected["类型"].isin(["废品", "次品外观"])]
-
-    # 筛选控件
-    col_f1, col_f2, col_f3, col_f4 = st.columns(4)
-    with col_f1:
-        shops = ["全部"] + sorted(df_corrected["车间"].dropna().unique().tolist())
-        selected_shop = st.selectbox("车间", shops, key="corr_shop")
-    with col_f2:
-        causes = ["全部"] + sorted(df_corrected["病象"].dropna().unique().tolist())
-        selected_cause = st.selectbox("病象", causes, key="corr_cause")
-    with col_f3:
-        machines = ["全部"] + sorted(df_corrected["成型"].dropna().unique().tolist())
-        selected_machine = st.selectbox("成型机", machines, key="corr_machine")
-    with col_f4:
-        masters = ["全部"] + sorted(df_corrected["成型主手"].dropna().unique().tolist())
-        selected_master = st.selectbox("成型主手", masters, key="corr_master")
-
-    filtered = df_corrected.copy()
-    if selected_shop != "全部":
-        filtered = filtered[filtered["车间"] == selected_shop]
-    if selected_cause != "全部":
-        filtered = filtered[filtered["病象"] == selected_cause]
-    if selected_machine != "全部":
-        filtered = filtered[filtered["成型"] == selected_machine]
-    if selected_master != "全部":
-        filtered = filtered[filtered["成型主手"] == selected_master]
-
-    display_cols = ["条码", "车间", "病象", "规格", "花纹", "成型", "成型主手",
-                    "硫化", "硫化主手", "硫化日期", "成型时间", "位置"]
-    display_cols = [c for c in display_cols if c in filtered.columns]
-
-    if filtered.empty:
-        st.info("没有匹配的废品/外观次品数据")
-        return
-
-    edited_df = st.data_editor(
-        filtered[display_cols],
-        column_config={
-            "车间": st.column_config.SelectboxColumn(
-                "车间",
-                options=["密炼", "部件", "部件成型", "成型", "硫化", "工程", "工艺"],
-                required=True
-            ),
-            "病象": st.column_config.SelectboxColumn(
-                "病象",
-                options=sorted(df_corrected["病象"].unique()),
-                required=True
-            )
-        },
-        hide_index=True,
-        use_container_width=True,
-        height=600,
-        key="correction_editor"
-    )
-
-    original = filtered[display_cols].reset_index(drop=True)
-    edited = edited_df.reset_index(drop=True)
-    changed_mask = (original["车间"] != edited["车间"]) | (original["病象"] != edited["病象"])
-    changed_rows = edited[changed_mask]
-
-    if not changed_rows.empty:
-        st.info(f"检测到 {len(changed_rows)} 行数据发生变化，请点击下方「保存修正记录」")
-        st.dataframe(changed_rows[["条码", "车间", "病象"]], use_container_width=True)
-
-        if st.button("💾 保存修正记录", use_container_width=True):
-            new_corrections = {}
-            for _, row in changed_rows.iterrows():
-                barcode = str(row["条码"])
-                new_corrections[barcode] = {
-                    "车间": row["车间"],
-                    "病象": row["病象"]
-                }
-            corrections.update(new_corrections)
-            save_corrections(corrections)
-            st.success("✅ 修正记录已保存！")
-            st.rerun()
-    else:
-        st.success("✅ 当前数据与修正记录一致，无变更")
-
-    if corrections:
-        st.divider()
-        st.subheader("📋 已保存的修正记录")
-        corr_df = pd.DataFrame([
-            {"条码": k, "修正车间": v.get("车间", ""), "修正病象": v.get("病象", "")}
-            for k, v in corrections.items()
-        ])
-        st.dataframe(corr_df, use_container_width=True, height=200)
-
-        if st.button("⚠️ 应用到源文件（修改Excel）", use_container_width=True, type="primary"):
-            confirm = st.checkbox("我已备份数据，确认执行修改")
-            if confirm:
-                with st.spinner("正在更新源文件..."):
-                    success = write_corrections_to_source(RAW_DIR, corrections, RULE_FILE)
-                    if success:
-                        st.success("✅ 源文件已更新！")
-                    else:
-                        st.error("应用失败，请检查日志")
-            else:
-                st.warning("请先勾选确认复选框")
-    else:
-        st.info("暂无修正记录")
 
 if __name__ == "__main__":
     main()
