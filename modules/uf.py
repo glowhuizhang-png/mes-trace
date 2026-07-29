@@ -32,7 +32,8 @@ def render_uf_detail_table(
     df,
     uf_check_df,
     key_prefix,
-    height=680
+    height=680,
+    photo_index=None   # 添加参数以兼容调用，但内部不使用
 ):
     """UF 明细数据"""
 
@@ -124,9 +125,10 @@ def render_uf_detail_table(
         return
 
     # ------------------------
-    # 显示列
+    # 显示列（安全构建）
     # ------------------------
 
+    # 基础列：只取实际存在的
     base_cols = [
         "条码",
         "成型",
@@ -136,17 +138,24 @@ def render_uf_detail_table(
         "规格",
         "花纹"
     ]
+    base_cols = [c for c in base_cols if c in filtered.columns]
 
-    base_cols = [
-        c for c in base_cols
-        if c in filtered.columns
-    ]
+    # UF 列：只取实际存在的
+    available_uf_cols = [c for c in UF_COLUMNS if c in filtered.columns]
 
-    show_cols = base_cols + UF_COLUMNS
+    # 合并显示列
+    show_cols = base_cols + available_uf_cols
+
+    # 构建重命名映射（只映射存在的列）
+    rename_map = {k: v for k, v in UF_HEADER_MAP.items() if k in available_uf_cols}
+
+    if not show_cols:
+        st.warning("没有可显示的列")
+        return
 
     filtered_display = (
         filtered[show_cols]
-        .rename(columns=UF_HEADER_MAP)
+        .rename(columns=rename_map)
     )
 
     st.markdown(
