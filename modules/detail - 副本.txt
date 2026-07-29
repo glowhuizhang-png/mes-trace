@@ -1,13 +1,13 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import base64
 from modules.detail_utils import render_detail_table
-from modules.photo import get_photo_data  # 唯一图片数据来源
 
 IMG_HEIGHT = 120
 
 def _ranking_section(df, group_col, title, key_prefix, photo_index):
-    """通用排行分析组件（保留）"""
+    """通用排行分析组件（保留用于后续扩展）"""
     if df.empty or group_col not in df.columns:
         st.info(f"无{title}数据")
         return
@@ -154,18 +154,15 @@ def render_waste_appearance_analysis(
             )
 
     with right:
-        # 确定当前要显示的条码列表
         if selected_cause and selected_type == option:
             all_barcodes = df_chart[df_chart["病象"] == selected_cause]["条码"].dropna().unique().tolist()
         else:
             all_barcodes = df_chart["条码"].dropna().unique().tolist()
 
-        # 过滤出有图片的条码
         valid_barcodes = []
         for bc in all_barcodes:
-            b, _ = get_photo_data(photo_index, bc)
-            if b is not None:
-                valid_barcodes.append(b)
+            if photo_index and str(bc).strip() in photo_index:
+                valid_barcodes.append(str(bc).strip())
 
         if not valid_barcodes:
             st.caption("无图片")
@@ -175,13 +172,13 @@ def render_waste_appearance_analysis(
                 st.session_state[img_key] = 0
             idx = st.session_state[img_key] % len(valid_barcodes)
             current_barcode = valid_barcodes[idx]
+            img_path = photo_index.get(current_barcode) if photo_index else None
 
-            # 通过 photo.py 获取图片数据
-            _, img_data = get_photo_data(photo_index, current_barcode)
-
-            if img_data:
+            if img_path:
+                with open(img_path, "rb") as f:
+                    data = base64.b64encode(f.read()).decode()
                 st.markdown(
-                    f'<img src="data:image/png;base64,{img_data}" '
+                    f'<img src="data:image/png;base64,{data}" '
                     f'style="height:{IMG_HEIGHT}px; width:auto; max-width:100%; border-radius:8px; cursor:pointer; '
                     f'display:block; margin:0 auto;">',
                     unsafe_allow_html=True
@@ -205,7 +202,7 @@ def render_waste_appearance_analysis(
             else:
                 st.warning("图片加载失败")
 
-    # ================= 悬浮弹窗（原图查看） =================
+    # ================= 悬浮弹窗（带详细信息与条码同行） =================
     show_dialog_key = f"show_dialog_{option}"
     if st.session_state.get(show_dialog_key, False):
         dialog_barcodes = st.session_state.get(f"dialog_barcodes_{option}", [])
@@ -218,9 +215,8 @@ def render_waste_appearance_analysis(
         def show_image_dialog():
             idx = st.session_state[f"dialog_idx_{option}"] % len(dialog_barcodes)
             barcode = dialog_barcodes[idx]
-            _, img_data = get_photo_data(photo_index, barcode)
+            img_path = photo_index.get(barcode) if photo_index else None
 
-            # 获取该条码的详细信息（从 df_chart 中查找）
             detail_df = df_chart[df_chart["病象"] == st.session_state.get("selected_cause")]
             record = detail_df[detail_df["条码"] == barcode]
             info = {}
@@ -234,7 +230,9 @@ def render_waste_appearance_analysis(
             info_text = f" | 硫化: {info['硫化']} | 硫化主手: {info['硫化主手']} | 成型: {info['成型']} | 成型主手: {info['成型主手']} | 规格: {info['规格']} | 花纹: {info['花纹']}"
             st.markdown(f"**条码：{barcode}**{info_text}")
 
-            if img_data:
+            if img_path:
+                with open(img_path, "rb") as f:
+                    img_data = base64.b64encode(f.read()).decode()
                 st.markdown(
                     f'<div style="display:flex; justify-content:center;">'
                     f'<img src="data:image/png;base64,{img_data}" '
