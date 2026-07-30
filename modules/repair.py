@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import io
 from modules.charts import style_bar_chart
 from modules.photo import trigger_image_popup
 
@@ -30,7 +31,6 @@ def _build_row(records, row_idx, code_span, name_span, mold_span, cure_span,
         row += f'<td style="text-align:center;">{int(val) if not pd.isna(val) else 0}</td>'
     row += '</tr>'
     return row
-
 
 def render_repair_table(raw_repair_df, selected_dates=None, photo_index=None):
     if raw_repair_df.empty:
@@ -140,10 +140,28 @@ def render_repair_table(raw_repair_df, selected_dates=None, photo_index=None):
     render_df = render_df.sort_values(sort_cols, ascending=ascendings).reset_index(drop=True)
     render_df.drop(columns=["code_total", "name_total", "defect_total"], inplace=True)
 
-    # ---------- 6. 准备渲染 ----------
+    # ---------- 6. 计算列求和（合计行） ----------
+    # 确定哪些列是数值列（需要求和）
+    numeric_cols = []
+    for col in render_df.columns:
+        if col not in group_cols:
+            # 检查该列是否为数值类型
+            if pd.api.types.is_numeric_dtype(render_df[col]):
+                numeric_cols.append(col)
+    # 生成合计行
+    total_row = {}
+    for col in render_df.columns:
+        if col in numeric_cols:
+            total_row[col] = render_df[col].sum()
+        else:
+            total_row[col] = "合计"
+    # 将合计行添加到 render_df 的末尾（仅用于导出，不在表格中重复渲染）
+    render_df_with_total = pd.concat([render_df, pd.DataFrame([total_row])], ignore_index=True)
+
+    # ---------- 7. 准备渲染 ----------
     records = render_df.to_dict("records")
 
-    # ---------- 7. 生成 HTML（固定列宽） ----------
+    # ---------- 8. 生成 HTML（固定列宽） ----------
     html = '<div class="scrollable-table" style="max-height:600px;">'
     html += '<table class="merged-repair-table" style="width:100%;table-layout:fixed;">'
     html += '<thead><tr>'
@@ -245,10 +263,50 @@ def render_repair_table(raw_repair_df, selected_dates=None, photo_index=None):
             j = name_end
         i = code_end
 
+    # ---------- 9. 添加合计行（tfoot） ----------
+    # 计算每一列的合计（仅数值列）
+    total_row_dict = {}
+    for col in headers:
+        if col in numeric_cols:
+            total_row_dict[col] = render_df[col].sum()
+        else:
+            total_row_dict[col] = "合计"
+    # 构造合计行 HTML
+    total_cells = []
+    for col in headers:
+        val = total_row_dict[col]
+        if col == "成品名称":
+            total_cells.append(f'<td style="text-align:left;padding-left:12px;font-weight:bold;">{val}</td>')
+        else:
+            total_cells.append(f'<td style="text-align:center;font-weight:bold;">{val if isinstance(val, str) else int(val)}</td>')
+    html += '<tfoot><tr>' + ''.join(total_cells) + '</tr></tfoot>'
+
     html += '</tbody></table></div>'
     st.markdown(html, unsafe_allow_html=True)
 
-    # ---------- 8. 图片查询 ----------
+    # ---------- 10. 下载按钮 ----------
+    # 导出当前显示的数据（含合计行）
+    def to_csv_with_total(df, total_row):
+        # 复制数据，追加合计行
+        export_df = df.copy()
+        # 将合计行转为 DataFrame 并追加
+        total_df = pd.DataFrame([total_row])
+        export_df = pd.concat([export_df, total_df], ignore_index=True)
+        # 转换为 CSV
+        csv = export_df.to_csv(index=False, encoding='utf-8-sig')
+        return csv
+
+    csv_data = to_csv_with_total(render_df, total_row_dict)
+    st.download_button(
+        label="📥 下载表格 (CSV)",
+        data=csv_data,
+        file_name="返修数据.csv",
+        mime="text/csv",
+        use_container_width=True,
+        key="repair_download_csv"
+    )
+
+    # ---------- 11. 图片查询 ----------
     st.divider()
     col_input, col_btn = st.columns([4, 1])
     with col_input:
