@@ -161,9 +161,8 @@ def render_repair_table(raw_repair_df, selected_dates=None, photo_index=None):
     # ---------- 7. 准备渲染 ----------
     records = render_df.to_dict("records")
 
-    # ---------- 8. 生成 HTML（取消滚动条，完整展示） ----------
-    # 【修改点】：移除了 max-height 和 overflow-y，让表格随内容自动撑开
-    html = '<div class="scrollable-table" style="width:100%;">'
+    # ---------- 8. 生成 HTML（固定列宽） ----------
+    html = '<div class="scrollable-table" style="max-height:600px;">'
     html += '<table class="merged-repair-table" style="width:100%;table-layout:fixed;">'
     html += '<thead><tr>'
     for h in headers:
