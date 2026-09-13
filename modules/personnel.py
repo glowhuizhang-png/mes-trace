@@ -110,8 +110,6 @@ def render_merged_person_table(person_df, person_col, type_col="类型", cause_c
         z-index: 10;
     }
     .scrollable-table {
-        max-height: 600px;
-        overflow-y: auto;
         border: 1px solid #ccc;
         border-radius: 8px;
     }
@@ -122,7 +120,12 @@ def render_merged_person_table(person_df, person_col, type_col="类型", cause_c
     </style>
     """, unsafe_allow_html=True)
 
-    html = f'<div class="scrollable-table" style="max-height: {max_height};">'
+    # 根据 max_height 判断是否限制高度和滚动
+    if max_height and str(max_height).lower() not in ["none", "null", "false"]:
+        html = f'<div class="scrollable-table" style="max-height: {max_height}; overflow-y: auto;">'
+    else:
+        html = f'<div class="scrollable-table" style="max-height: none; overflow-y: visible;">'
+
     html += '<table class="merged-person-table">'
     header = '<tr>' + ''.join([f'<th>{c}</th>' for c in col_order]) + '</tr>'
     html += f'<thead>{header}</thead><tbody>'
@@ -185,7 +188,8 @@ def render_molding_analysis(df):
             ["合计", "成型主手", "类型", "病象"],
             ascending=[False, True, True, True]
         )
-        html = render_merged_person_table(person_detail, "成型主手", extra_col=extra, max_height="600px")
+        # 修改此处：将 max_height 设置为 "none"
+        html = render_merged_person_table(person_detail, "成型主手", extra_col=extra, max_height="none")
         if html:
             st.markdown(html, unsafe_allow_html=True)
     else:
@@ -218,7 +222,8 @@ def render_vulcanization_analysis(df):
             ["合计", "硫化主手", "类型", "病象"],
             ascending=[False, True, True, True]
         )
-        html = render_merged_person_table(person_detail, "硫化主手", extra_col=extra, max_height="600px")
+        # 修改此处：将 max_height 设置为 "none"
+        html = render_merged_person_table(person_detail, "硫化主手", extra_col=extra, max_height="none")
         if html:
             st.markdown(html, unsafe_allow_html=True)
     else:
