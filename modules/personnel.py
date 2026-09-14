@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import io
-import datetime
 
 # ========== 成型部门主手综合排行（废品+外观次品总数降序 TOP10） ==========
 def render_master_ranking(df, key_prefix="master_rank"):
@@ -13,6 +11,7 @@ def render_master_ranking(df, key_prefix="master_rank"):
     df = df.dropna(subset=["成型主手"])
     df = df[df["成型主手"].astype(str).str.strip() != ""]
 
+    # 降序排列，取前10
     counts = df["成型主手"].value_counts().head(10).reset_index()
     counts.columns = ["成型主手", "数量"]
 
@@ -38,17 +37,20 @@ def render_master_ranking(df, key_prefix="master_rank"):
     event = st.plotly_chart(fig, use_container_width=True,
                             on_select="rerun", key=chart_key)
 
+    # 处理点击：设置一次性标记
     if event and event.selection and event.selection.points:
         clicked = event.selection.points[0]["x"]
         last = st.session_state.get(f"{key_prefix}_last")
         if clicked != last:
             st.session_state[f"{key_prefix}_last"] = clicked
             st.session_state[f"{key_prefix}_selected"] = clicked
-            st.session_state[f"{key_prefix}_pending"] = True
+            st.session_state[f"{key_prefix}_pending"] = True   # 一次性标记
             st.rerun()
 
+    # 弹窗逻辑：仅当本次有点击触发时才显示
     pending_key = f"{key_prefix}_pending"
     if st.session_state.get(pending_key):
+        # 立即清除标记，防止后续渲染再次触发
         st.session_state[pending_key] = False
         selected = st.session_state[f"{key_prefix}_selected"]
         detail_df = df[df["成型主手"] == selected]
@@ -63,6 +65,7 @@ def render_master_ranking(df, key_prefix="master_rank"):
             available = [c for c in display_cols if c in detail_df.columns]
             st.dataframe(detail_df[available], use_container_width=True, height=500)
             if st.button("关闭", key=f"{key_prefix}_close"):
+                # 清理所有相关状态
                 for k in [f"{key_prefix}_selected", f"{key_prefix}_last", pending_key]:
                     if k in st.session_state:
                         del st.session_state[k]
@@ -70,123 +73,7 @@ def render_master_ranking(df, key_prefix="master_rank"):
         show_dialog()
 
 
-# ========== 核心功能：导出并美化 Excel ==========
-def export_to_excel(df, person_col, type_col="类型", cause_col="病象", count_col="数量", total_col="合计", extra_col=None):
-    """
-    将 DataFrame 导出为美化后的 Excel 文件（支持合并单元格、边框、居中、自适应列宽等）
-    """
-    output = io.BytesIO()
-    
-    # 确定列顺序
-    col_order = [person_col]
-    if extra_col and extra_col in df.columns:
-        col_order.append(extra_col)
-    col_order.extend([type_col, cause_col, count_col, total_col])
-    col_order = [c for c in col_order if c in df.columns] # 过滤不存在的列
-    
-    df_export = df[col_order].copy()
-    
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df_export.to_excel(writer, sheet_name='人员分析', index=False, startrow=0)
-        workbook = writer.book
-        worksheet = writer.sheets['人员分析']
-        
-        # 定义格式样式
-        header_format = workbook.add_format({
-            'bold': True, 'bg_color': '#f0f2f6', 'border': 1,
-            'align': 'center', 'valign': 'vcenter',
-            'font_name': 'Microsoft YaHei', 'font_size': 11
-        })
-        cell_format = workbook.add_format({
-            'border': 1, 'align': 'center', 'valign': 'vcenter',
-            'font_name': 'Microsoft YaHei', 'font_size': 11
-        })
-        merged_cell_format = workbook.add_format({
-            'border': 1, 'align': 'center', 'valign': 'vcenter',
-            'font_name': 'Microsoft YaHei', 'font_size': 11,
-            'bg_color': '#ffffff'
-        })
-        
-        # 设置列宽
-        worksheet.set_column(0, len(col_order)-1, 15)
-        for idx, col in enumerate(col_order):
-            if col == cause_col: 
-                worksheet.set_column(idx, idx, 30) # 病象列宽一些
-            elif col in [person_col, extra_col, type_col]: 
-                worksheet.set_column(idx, idx, 12)
-            else: 
-                worksheet.set_column(idx, idx, 10)
-                
-        # 写入表头（带样式）
-        for col_num, value in enumerate(df_export.columns.values):
-            worksheet.write(0, col_num, value, header_format)
-            
-        # 冻结首行
-        worksheet.freeze_panes(1, 0)
-        
-        # 合并单元格逻辑
-        n = len(df_export)
-        i = 0
-        row_idx = 1 # Excel 数据从第 1 行开始（0 是表头）
-        
-        while i < n:
-            current_person = df_export.iloc[i][person_col]
-            person_end = i
-            while person_end < n and df_export.iloc[person_end][person_col] == current_person:
-                person_end += 1
-            person_span = person_end - i
-            
-            # 合并人员列
-            if person_span > 1:
-                worksheet.merge_range(row_idx, 0, row_idx + person_span - 1, 0, current_person, merged_cell_format)
-            else:
-                worksheet.write(row_idx, 0, current_person, cell_format)
-                
-            # 合并合计列
-            total_col_idx = len(col_order) - 1
-            total_val = df_export.iloc[i][total_col]
-            if person_span > 1:
-                worksheet.merge_range(row_idx, total_col_idx, row_idx + person_span - 1, total_col_idx, total_val, merged_cell_format)
-            else:
-                worksheet.write(row_idx, total_col_idx, total_val, cell_format)
-            
-            j = i
-            while j < person_end:
-                current_type = df_export.iloc[j][type_col]
-                type_end = j
-                while type_end < person_end and df_export.iloc[type_end][type_col] == current_type:
-                    type_end += 1
-                type_span = type_end - j
-                
-                type_col_idx = col_order.index(type_col)
-                
-                # 合并类型列
-                if type_span > 1:
-                    worksheet.merge_range(row_idx + (j - i), type_col_idx, row_idx + (j - i) + type_span - 1, type_col_idx, current_type, merged_cell_format)
-                
-                for k in range(j, type_end):
-                    current_row_idx = row_idx + (k - i)
-                    for col_idx, col_name in enumerate(col_order):
-                        # 跳过已经合并的列
-                        if col_name in [person_col, total_col]:
-                            continue
-                        if col_name == type_col and type_span > 1:
-                            continue
-                        
-                        val = df_export.iloc[k][col_name]
-                        worksheet.write(current_row_idx, col_idx, val, cell_format)
-                        
-                j = type_end
-            i = person_end
-            
-        # 添加自动筛选
-        worksheet.autofilter(0, 0, n, len(col_order)-1)
-        
-    output.seek(0)
-    return output.getvalue()
-
-
-# ========== 表格渲染函数（已取消滑动查看） ==========
+# ========== 以下原有函数保持不变 ==========
 def render_merged_person_table(person_df, person_col, type_col="类型", cause_col="病象", count_col="数量", total_col="合计", max_height="600px", extra_col=None):
     if person_df.empty:
         return ""
@@ -223,6 +110,8 @@ def render_merged_person_table(person_df, person_col, type_col="类型", cause_c
         z-index: 10;
     }
     .scrollable-table {
+        max-height: 600px;
+        overflow-y: auto;
         border: 1px solid #ccc;
         border-radius: 8px;
     }
@@ -233,8 +122,7 @@ def render_merged_person_table(person_df, person_col, type_col="类型", cause_c
     </style>
     """, unsafe_allow_html=True)
 
-    # 取消高度限制，直接全部显示
-    html = f'<div class="scrollable-table" style="max-height: none; overflow-y: visible;">'
+    html = f'<div class="scrollable-table" style="max-height: {max_height};">'
     html += '<table class="merged-person-table">'
     header = '<tr>' + ''.join([f'<th>{c}</th>' for c in col_order]) + '</tr>'
     html += f'<thead>{header}</thead><tbody>'
@@ -297,22 +185,9 @@ def render_molding_analysis(df):
             ["合计", "成型主手", "类型", "病象"],
             ascending=[False, True, True, True]
         )
-        
-        # 渲染 HTML 表格（取消滑动查看）
-        html = render_merged_person_table(person_detail, "成型主手", extra_col=extra, max_height="none")
+        html = render_merged_person_table(person_detail, "成型主手", extra_col=extra, max_height="600px")
         if html:
             st.markdown(html, unsafe_allow_html=True)
-            
-        # 一键导出功能
-        st.markdown("---")
-        excel_data = export_to_excel(person_detail, "成型主手", extra_col=extra)
-        st.download_button(
-            label="📥 导出成型人员分析（Excel）",
-            data=excel_data,
-            file_name=f"成型人员分析_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="export_molding_btn"
-        )
     else:
         st.info("无成型及UF数据")
 
@@ -343,21 +218,8 @@ def render_vulcanization_analysis(df):
             ["合计", "硫化主手", "类型", "病象"],
             ascending=[False, True, True, True]
         )
-        
-        # 渲染 HTML 表格（取消滑动查看）
-        html = render_merged_person_table(person_detail, "硫化主手", extra_col=extra, max_height="none")
+        html = render_merged_person_table(person_detail, "硫化主手", extra_col=extra, max_height="600px")
         if html:
             st.markdown(html, unsafe_allow_html=True)
-            
-        # 一键导出功能
-        st.markdown("---")
-        excel_data = export_to_excel(person_detail, "硫化主手", extra_col=extra)
-        st.download_button(
-            label="📥 导出硫化人员分析（Excel）",
-            data=excel_data,
-            file_name=f"硫化人员分析_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="export_vulcanization_btn"
-        )
     else:
         st.info("无硫化数据（废品/次品外观）")
