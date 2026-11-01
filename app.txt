@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import os
-from datetime import timedelta
 
 # 自动刷新
 try:
@@ -16,17 +14,16 @@ except ImportError:
 from config import RULE_FILE, RAW_DIR, PHOTO_BASE_DIR, PRODUCTION_FILE, UF_DATA_DIR, APP_VERSION
 from modules.loader import (
     load_rule, load_raw, load_production, load_uf_check_data,
-    load_daily_production_dict, derive_columns, get_all_dates
+    load_daily_production_dict, get_all_dates
 )
-from modules.photo import build_photo_index, trigger_image_popup
+from modules.derivations import derive_columns
+from modules.photo import build_photo_index
 from modules.charts import style_bar_chart
 from modules.personnel import render_merged_person_table
 from modules.repair import render_repair_table
 from modules.pareto import build_pareto_chart
 from modules.uf import render_uf_detail_table
-from modules.detail import render_detail_table
-from modules.detail import render_detail_table, render_summary_table, render_waste_appearance_analysis
-from modules.statistics import render_machine_statistics
+from modules.detail import render_waste_appearance_analysis
 
 # ========== 页面配置 ==========
 st.set_page_config(
@@ -189,7 +186,7 @@ def main():
         st.divider()
 
         st.header("数据选择")
-        selected_dates = st.multiselect("选择分析日期", all_dates, default=all_dates[:1] if all_dates else [])
+        selected_dates = st.multiselect("选择分析生产日", all_dates, default=all_dates[:1] if all_dates else [])
 
         total_production = 0
         daily_prod_dict = {}
