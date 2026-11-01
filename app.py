@@ -4,7 +4,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 from datetime import datetime, timedelta
-from pathlib import Path
 
 # 自动刷新
 try:
@@ -15,7 +14,8 @@ except ImportError:
 
 # 导入自定义模块
 from config import RULE_FILE, RAW_DIR, PHOTO_BASE_DIR, PRODUCTION_FILE, UF_DATA_DIR, APP_VERSION
-from modules.loader import (load_rule, load_raw, load_production, load_uf_check_data, load_daily_production_dict)
+from modules.loader import (load_rule, load_raw, load_production, load_uf_check_data,
+                            load_daily_production_dict, get_all_dates)
 from modules.derivations import derive_columns
 from modules.photo import build_photo_index, trigger_image_popup
 from modules.charts import style_bar_chart
@@ -284,19 +284,21 @@ def check_password():
 
 # ---------- 辅助函数 ----------
 def get_available_dates(raw_dir):
-    dates = []
-    available_files = set()
-    for ext in ["*.xlsx", "*.xls"]:
-        for file in Path(raw_dir).glob(ext):
-            name = file.stem.strip()
-            try:
-                d = datetime.strptime(name, "%Y%m%d").date()
-                dates.append(d)
-                available_files.add(name)
-            except ValueError:
-                continue
-    dates.sort()
-    return dates, available_files
+    """
+    返回可用的生产日列表。
+
+    日期来源为 Excel 内的“检测日期”列（按 08:00 班次分界换算），
+    而不是文件名；因此返回的是生产日字符串集合。
+    """
+    dates = get_all_dates(raw_dir)
+    parsed = []
+    for d in dates:
+        try:
+            parsed.append(datetime.strptime(d, "%Y%m%d").date())
+        except ValueError:
+            continue
+    parsed.sort()
+    return parsed, set(dates)
 
 def load_all_data(selected_dates):
     raw = load_raw(selected_dates, RAW_DIR)
@@ -563,7 +565,7 @@ def main():
             st.warning("所选区间内没有可用的数据文件")
             return
 
-        st.write(f"📂 加载文件数：**{len(selected_dates)}** 天")
+        st.write(f"📅 加载生产日：**{len(selected_dates)}** 天")
         st.write(f"📅 数据范围：**{min(selected_dates)} ～ {max(selected_dates)}**")
         prod_total = load_production(selected_dates, PRODUCTION_FILE)
         if prod_total is not None and prod_total > 0:
